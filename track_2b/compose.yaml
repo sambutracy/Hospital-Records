@@ -1,0 +1,153 @@
+name: health-continuity
+services:
+  trial:
+    image: python:3.12-slim
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    command: ["python", "src/intelligence/trial.py", "run"]
+    profiles: ["evaluation"]
+
+  bootstrap:
+    image: python:3.12-slim
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    command: ["python", "src/tools/bootstrap_demo.py"]
+    profiles: ["setup"]
+
+  storage-init:
+    image: python:3.12-slim
+    user: "0"
+    volumes:
+      - private_documents:/private-documents
+    command: ["python", "-c", "import os; os.chown('/private-documents',10001,10001); os.chmod('/private-documents',0o700)"]
+
+  database:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: continuity
+      POSTGRES_USER: continuity_owner
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-}
+      APP_DATABASE_PASSWORD: ${APP_DATABASE_PASSWORD:-}
+      KEYCLOAK_DATABASE_PASSWORD: ${KEYCLOAK_DATABASE_PASSWORD:-}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./src/tools/init-database.sql:/docker-entrypoint-initdb.d/10-keycloak.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U continuity_owner -d continuity"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://database:5432/keycloak
+      KC_DB_USERNAME: keycloak_owner
+      KC_DB_PASSWORD: ${KEYCLOAK_DATABASE_PASSWORD:-}
+      KC_HOSTNAME: http://localhost:8081
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: demo-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-}
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - ./.runtime/continuity-realm.json:/opt/keycloak/data/import/continuity-realm.json:ro
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3; grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 20
+    mem_limit: 2g
+    restart: unless-stopped
+
+  migrate:
+    build: .
+    command: ["python", "src/tools/migrate_database.py"]
+    environment:
+      DEMO_MODE: "1"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+      DATABASE_URL: postgresql://continuity_owner:${DATABASE_PASSWORD:-}@database:5432/continuity
+    depends_on:
+      database:
+        condition: service_healthy
+
+  app:
+    build: .
+    environment:
+      DEMO_MODE: "1"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+      DATABASE_URL: postgresql://continuity_app:${APP_DATABASE_PASSWORD:-}@database:5432/continuity
+      APP_BASE_URL: http://localhost:8000
+      FACILITY_SEARCH_URL: ${FACILITY_SEARCH_URL:-https://nominatim.openstreetmap.org}
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      OIDC_ISSUER: http://localhost:8081/realms/continuity
+      OIDC_INTERNAL_ISSUER: http://keycloak:8080/realms/continuity
+      OIDC_CLIENT_ID: continuity-web
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      LLM_NAME: ${LLM_NAME:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      PRIVATE_STORAGE_ROOT: /private-documents
+    volumes:
+      - private_documents:/private-documents
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python", "src/manage.py", "process_records"]
+    environment:
+      DEMO_MODE: "1"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+      DATABASE_URL: postgresql://continuity_app:${APP_DATABASE_PASSWORD:-}@database:5432/continuity
+      PRIVATE_STORAGE_ROOT: /private-documents
+      LLM_NAME: ${LLM_NAME:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    volumes:
+      - private_documents:/private-documents
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time; assert time.time()-os.stat('/tmp/records-worker-heartbeat').st_mtime<240"]
+      interval: 30s
+      start_period: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  private_documents:

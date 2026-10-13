@@ -34,6 +34,20 @@ build/
 /docs/data-model-and-build-order.md
 /docs/schema-proposal.md
 /docs/schema-proposal-v1.md
+/docs/schema-proposal-v2.md
 /docs/model-review-decisions.md
+/docs/capability-matrix.md
+/docs/physical-schema-contract.md
 /docs/submission-checklist.md
 /docs/README.md
+/docs/day-2-physical-schema.md
+/docs/day-2-status.md
+/docs/final-week-plan.md
+/docs/records-backend-contract.md
+/docs/backend-status.md
+/docs/model-access-alternatives.md
+/docs/progress-review.md
+
+# Generated local demo secrets and built static files
+.runtime/
+/src/staticfiles/

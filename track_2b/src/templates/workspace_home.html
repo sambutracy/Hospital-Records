@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Your workspace · Comfort{% endblock %}
+{% block content %}
+<div id="comfort-workspace" data-api-base="/api/workspaces/{{ workspace.pk }}/">
+<p class="eyebrow">YOUR WORKSPACE</p><h1 class="workspace-title">Your records, ready for your next visit.</h1>
+<p class="lead">Welcome, {{ workspace.subject_patient.person.display_name }}. Keep originals together, check their details and choose what to bring.</p>
+<p id="workspace-message" role="status" aria-live="polite"></p>
+<div class="workspace-grid">
+<section class="panel" aria-labelledby="upload-title"><h2 id="upload-title">Add a record</h2>
+<form id="upload-form" autocomplete="off">{% csrf_token %}
+<label for="record-file">Original files</label><input id="record-file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.dcm,.dicom" multiple required>
+<p id="upload-selection" class="quiet">Choose up to 30 files.</p>
+<label for="record-kind">How should JPEG/PNG files be handled?</label><select id="record-kind" name="content_kind"><option value="document">Photographed reports</option><option value="medical_image">Medical image exports</option></select>
+<p class="quiet">PDF, JPEG, PNG or DICOM · up to 10 MB per file. PDFs are reports and DICOM files are medical imaging. Each original is saved separately.</p>
+<button type="submit">Add selected files</button><button id="retry-uploads" class="secondary" type="button" hidden>Retry failed files</button>
+<div id="upload-results" aria-live="polite"></div></form></section>
+<section class="panel" aria-labelledby="search-title"><h2 id="search-title">Find a record</h2>
+<form id="search-form" autocomplete="off"><label for="record-query">What are you looking for?</label><input id="record-query" name="query" maxlength="160" placeholder="e.g. ultrasound report from Cedar Clinic">
+<div class="actions"><button type="submit" name="mode" value="keyword" class="secondary">Keyword search</button><button type="submit" name="mode" value="apertus">Ask Apertus</button><button type="button" id="reset-search" class="secondary">Show all</button></div></form>
+<p id="assistant-availability" class="quiet">Keyword search works now. Apertus can suggest relevant records once model access is connected. Suggestions always link back to their sources.</p></section>
+</div>
+<section class="panel records-panel" aria-labelledby="records-title"><div class="section-heading"><h2 id="records-title">Your records</h2><button id="refresh-records" class="secondary" type="button">Refresh</button></div>
+<p class="quiet">Ordered by upload time. Document dates remain exactly as confirmed, including partial or unknown dates.</p>
+<div id="record-list" aria-live="polite"><p>Loading your records…</p></div>
+<button id="more-records" class="secondary" type="button" hidden>Load more records</button></section>
+<section id="record-details" class="panel" aria-labelledby="details-title" hidden><h2 id="details-title">Review a record</h2><div id="source-details"></div><div id="source-preview"></div><div id="metadata-proposals"></div>
+<form id="review-form" autocomplete="off"><input id="review-record-id" type="hidden"><input id="review-version-id" type="hidden"><input id="review-revision" type="hidden">
+<label for="review-type">Record type</label><select id="review-type"><option value="lab_report">Lab report</option><option value="referral">Referral</option><option value="consultation_note">Consultation note</option><option value="prescription">Prescription</option><option value="discharge_summary">Discharge summary</option><option value="imaging_report">Imaging report</option><option value="medical_image">Medical image</option><option value="other">Other / unknown</option></select>
+<label for="review-facility">Issuing facility, if stated</label><input id="review-facility" maxlength="180">
+<fieldset class="facility-location"><legend>Facility location (optional)</legend>
+<label for="facility-query">Search the hospital or clinic</label><input id="facility-query" maxlength="180" placeholder="e.g. Aga Khan University Hospital, Nairobi" aria-describedby="facility-location-help">
+<button id="facility-search" class="secondary" type="button">Search hospitals</button>
+<p id="facility-location-help" class="quiet">Enter a public facility name and town only. Choose the correct result below; its name and Google Maps pin are saved when you confirm these details.</p>
+<p class="quiet">Search data: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>.</p>
+<div id="facility-results" aria-live="polite"></div>
+<label for="review-facility-maps">Selected hospital’s Google Maps pin</label><input id="review-facility-maps" type="url" maxlength="2048" readonly placeholder="Choose a search result to add the location">
+<button id="clear-facility-pin" class="secondary" type="button">Remove selected location</button>
+<div id="facility-pin-preview" aria-live="polite"></div></fieldset>
+<label for="review-precision">Document date precision</label><select id="review-precision"><option value="unknown">Unknown</option><option value="year">Year only</option><option value="month">Month and year</option><option value="day">Full date</option></select>
+<div class="date-parts"><label>Year<input id="review-year" type="number" min="1" max="9999"></label><label>Month<input id="review-month" type="number" min="1" max="12"></label><label>Day<input id="review-day" type="number" min="1" max="31"></label></div>
+<p class="quiet">Use the document date, rather than guessing from a visit or upload date. Confirmation records your review; it does not verify clinical findings.</p>
+<button type="submit">Confirm these details</button></form>
+<form id="term-form" autocomplete="off"><h3>Understand a term</h3><label for="record-term">Term appearing in this record</label><input id="record-term" maxlength="80" placeholder="e.g. CBC or MRI" required><p class="quiet">Current glossary: MRI/MR, ultrasound/US, CT, CBC and hemoglobin/Hb/Hgb. General definitions link to MedlinePlus.</p><button type="submit" class="secondary">Explain with Apertus</button></form></section>
+<section class="panel" aria-labelledby="packet-title"><h2 id="packet-title">Prepare for a consultation</h2><p id="selection-count">No records selected.</p>
+<form id="packet-form" autocomplete="off"><label for="packet-purpose">Visit or purpose</label><input id="packet-purpose" maxlength="180" placeholder="e.g. follow-up consultation" required><button type="submit">Create a private packet</button></form>
+<p class="quiet">Select records above. A packet preserves exactly those versions and their confirmed details. Sharing with a clinician is a separate step.</p><div id="packet-list"></div></section>
+<section class="panel" aria-labelledby="assistant-title"><h2 id="assistant-title">Apertus suggestions</h2><p class="quiet">Check every suggestion against its cited original. Packet overviews are drafts and do not change your packet. Images receive no automated clinical interpretation.</p><div id="assistant-results" aria-live="polite"></div></section>
+<noscript><p>This workspace needs JavaScript for uploads, review and assistant controls.</p></noscript>
+</div>
+<script src="{% static 'workspace.js' %}" defer></script>
+{% endblock %}

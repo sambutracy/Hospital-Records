@@ -1,0 +1,4 @@
+{% extends 'base.html' %}
+{% block content %}<p class="eyebrow">HEALTH CONTINUITY</p><h1>Your workspaces</h1>
+{% if workspaces %}<ul class="workspaces">{% for workspace in workspaces %}<li><a href="{% url 'workspace_home' workspace.id %}">{{ workspace.subject_patient.person.display_name }}</a></li>{% endfor %}</ul>
+{% else %}<section class="empty"><h2>No workspace is available</h2><p>Your account is signed in, but it currently has no active workspace access.</p></section>{% endif %}{% endblock %}

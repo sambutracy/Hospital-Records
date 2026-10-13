@@ -1,9 +1,9 @@
-# Technical report — `project name`
+# Technical report — Comfort
 
 A deeper write-up than the README: what you built, how it works, and what the
 numbers say.
 
-- **Track:** `Track 2B — project name`
+- **Track:** Track 2B — Comfort
 - **Event:** Online
 - **Team:** `team name` — `member`, `member`, `member`
 - **Demo:** `link to video`

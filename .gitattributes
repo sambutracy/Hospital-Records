@@ -1,0 +1,7 @@
+* text=auto
+*.py text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+Makefile text eol=lf
+track_2b/Dockerfile text eol=lf

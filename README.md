@@ -15,8 +15,9 @@ This repository holds one example project per track:
 
 Keep the directory for the track you are competing in **exactly as it is** —
 don't rename it or move its files — and delete the other track directories.
-That directory is your project root. Keep the files and directories as shown
-below.
+Keep the track's application and report files inside that directory. The
+repository root contains the launch Makefile, following the organizer's
+9 October clarification shared in Discord.
 
 ## The structure
 
@@ -24,7 +25,7 @@ below.
 | --- | --- |
 | `README.md` | The challenge description and submission requirements for your track |
 | `technical_report.md` | The deeper write-up: architecture, evaluation, limitations |
-| `Makefile` | `make run` must spin up your project |
+| Repository-root `Makefile` | Judges launch the application with `make run` |
 | `src/` | Your code |
 | `data/` | Datasets — `track_1a`, `track_2a` and `track_2b` only; max. 100 MB |
 | `findings/` | Issue files — `track_1a` only |
@@ -32,7 +33,7 @@ below.
 
 ## Run it
 
-Judges run `make run` from the root of the project, on a clean checkout:
+Judges run `make run` from the repository root, on a clean checkout:
 
 ```bash
 make run
@@ -55,14 +56,36 @@ LLM_API_KEY — your API key
 3. Read its `README.md` and fill in `technical_report.md`.
 4. Make `make run` work from the root of the project, on a clean checkout.
 
+For Comfort, the layout is:
+
+```text
+Makefile
+README.md
+track_2b/
+  compose.yaml
+  Dockerfile
+  README.md
+  technical_report.md
+  src/
+  data/
+  docs/
+```
+
+The root Makefile explicitly selects `track_2b/compose.yaml` and its project
+directory, preserving the existing volumes and private configuration paths.
+The report PDF is provisionally kept in `track_2b/` beside its Markdown source;
+the shared Discord reply clarifies only the Makefile location.
+
 ## License
 
 All Hack Apertus projects are open-sourced. Please check our Terms & Conditions for specific licensing details (6. What you build is open source): https://hackapertus.ch/terms-and-conditions
 
-## Patient Health Continuity Platform
+## Comfort — Patient Health Continuity Platform
 
-Current status: Day 1 documents and repository structure only. No application code has been added.
+Current status: self-hosted Keycloak OAuth/OIDC, explicit self-workspace authorization, private record storage, metadata review/history, keyword search and frozen consultation packets. The workspace now has upload/review/preview/packet screens and an assistant for semantic search, source-linked overview drafts and reviewed glossary definitions. All 127 identity/records/assistant tests pass on native PostgreSQL. A local CPU Apertus 8B text conversion is installed and connected while CSCS approval is pending. Medical-image previews and bounded DICOM header inspection work; image interpretation, OCR, full study viewing and clinician sharing remain pending.
 
-Work in `track_2b/`, the hackathon project root. The official challenge README and technical report outline are preserved there. Start with [project planning documents](track_2b/docs/README.md) and the [submission checklist](track_2b/docs/submission-checklist.md).
+Work in `track_2b/`, the application directory; run Make targets from the repository root. The official challenge README and technical report outline are preserved there. See [application setup and current implementation](track_2b/src/README.md). Internal planning notes stay local and ignored by Git.
 
-The retained `Makefile` is the official nonfunctional placeholder. Docker execution, model integration, the report PDF and demo video remain pending. GitHub repository creation through **Use this template** and public publication are still required; importing these files locally does not create a GitHub template-derived repository.
+`make run` defines a local Docker demo with Keycloak, PostgreSQL, migration, web and worker services. The equivalent Compose commands built and started it on Docker Desktop. Real Keycloak sign-in, workspace isolation, sign-out and restart persistence were checked earlier. The optional Windows inference process is started separately; see [model setup](track_2b/src/intelligence/README.md). A portable model deployment, clean-checkout verification, final evaluation, report PDF, demo video and submission checks remain pending.
+
+A separate [Apertus synthetic text trial](track_2b/src/intelligence/README.md) uses five authored development cases and 14 offline harness tests. It records real responses, strict metadata/evidence grading and latency in private artifacts, using the required LLM environment variables. Those live results must be distinguished from mocked protocol tests and from clinical validation.

@@ -1,0 +1,14 @@
+"""Permissions for the fixed runtime role; called with migration-owner credentials."""
+def configure_runtime_permissions(connection):
+    with connection.cursor() as cursor:
+        cursor.execute('GRANT USAGE ON SCHEMA public TO continuity_app')
+        cursor.execute('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO continuity_app')
+        cursor.execute('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO continuity_app')
+        cursor.execute('REVOKE ALL ON capability_rules, django_migrations FROM continuity_app')
+        cursor.execute('GRANT SELECT ON capability_rules, django_migrations TO continuity_app')
+        cursor.execute('REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM continuity_app')
+        cursor.execute('REVOKE DELETE, TRUNCATE ON persons, users, oidc_identities, patient_profiles, patient_workspaces, workspace_memberships, access_capabilities FROM continuity_app')
+        cursor.execute('REVOKE UPDATE, DELETE, TRUNCATE ON source_versions, text_extractions, image_inspections, derived_artifacts, metadata_assertions, consultation_packets, packet_source_items FROM continuity_app')
+        cursor.execute('REVOKE DELETE, TRUNCATE ON source_records, ingestion_jobs, generation_runs, metadata_heads, packet_revisions FROM continuity_app')
+        cursor.execute('REVOKE UPDATE, DELETE, TRUNCATE ON assistant_sources FROM continuity_app')
+        cursor.execute('REVOKE DELETE, TRUNCATE ON assistant_tasks FROM continuity_app')

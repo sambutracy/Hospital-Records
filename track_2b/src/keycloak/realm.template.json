@@ -1,0 +1,40 @@
+{
+  "realm": "continuity",
+  "enabled": true,
+  "displayName": "Comfort — local demo",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 900,
+  "ssoSessionMaxLifespan": 3600,
+  "clients": [
+    {
+      "clientId": "continuity-web",
+      "name": "Comfort",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": ["http://localhost:8000/auth/callback/"],
+      "webOrigins": ["http://localhost:8000"],
+      "defaultClientScopes": ["profile"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "id.token.signed.response.alg": "RS256",
+        "post.logout.redirect.uris": "http://localhost:8000/auth/logged-out/"
+      }
+    }
+  ],
+  "users": [
+    {"username": "patient.alice", "enabled": true, "email": "alice.demo@example.invalid", "emailVerified": false, "firstName": "Alice", "lastName": "Demo", "requiredActions": []},
+    {"username": "patient.bob", "enabled": true, "email": "bob.demo@example.invalid", "emailVerified": false, "firstName": "Bob", "lastName": "Demo", "requiredActions": []}
+  ]
+}

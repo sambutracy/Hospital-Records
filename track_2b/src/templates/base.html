@@ -1,0 +1,10 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Comfort{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'app.css' %}"></head>
+<body><a class="skip-link" href="#main">Skip to content</a>
+<header class="header"><a class="brand" href="/">Comfort<span>Patient records, connected.</span></a>
+{% if user.is_authenticated %}<form method="post" action="{% url 'sign_out' %}">{% csrf_token %}<button class="secondary" type="submit">Sign out</button></form>{% endif %}</header>
+<main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
+<footer>Hack Apertus prototype · Synthetic accounts only</footer></body></html>
