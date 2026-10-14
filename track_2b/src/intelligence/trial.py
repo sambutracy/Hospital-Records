@@ -62,12 +62,19 @@ def configuration(env_path=ROOT / '.env', environ=None):
                     value = value[1:-1]
                 values[key.strip()] = value
     environ = os.environ if environ is None else environ
-    for key in ('LLM_NAME', 'LLM_BASE_URL', 'LLM_API_KEY'):
+    for key in ('LLM_NAME', 'LLM_BASE_URL', 'LLM_API_KEY', 'LLM_API_KEY_FILE'):
         if key in environ:
             values[key] = environ[key]
     model = values.get('LLM_NAME', '')
     base = values.get('LLM_BASE_URL', '').rstrip('/')
     key = values.get('LLM_API_KEY', '')
+    if values.get('LLM_API_KEY_FILE'):
+        try:
+            key = Path(values['LLM_API_KEY_FILE']).read_text(encoding='utf-8').strip()
+        except (OSError, UnicodeError):
+            raise TrialError('Local inference key file is unavailable.') from None
+        if not key or len(key) > 512:
+            raise TrialError('Local inference key file is invalid.')
     if not model or not base:
         raise TrialError('Set LLM_NAME and LLM_BASE_URL in the ignored track_2b/.env first.')
     if model not in MODELS:

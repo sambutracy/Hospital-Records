@@ -1,9 +1,31 @@
 from django.urls import path
 from . import views
+from . import continuity_views as cv
+from identity import profile_views as pv
+from . import medication_views as mv
 
 urlpatterns=[
+    path('profile/',pv.profile,name='profile_api'),
+    path('care-circle/',pv.contacts,name='care_circle'),
+    path('care-circle/<uuid:contact_id>/',pv.contact,name='care_circle_contact'),
+    path('care-circle/<uuid:contact_id>/status/',pv.contact_state,name='care_circle_status'),
+    path('care-circle/resolve/',pv.resolve_contact,name='care_circle_resolve'),
+    path('care-circle/choices/',pv.circle_choices,name='care_circle_choices'),
+    path('medications/',mv.entries,name='medication_entries'),
+    path('medications/choices/',mv.choices,name='medication_choices'),
+    path('medications/<uuid:entry_id>/',mv.entry,name='medication_entry'),
+    path('medications/<uuid:entry_id>/status/',mv.status,name='medication_status'),
+    path('episodes/',cv.episodes,name='episodes'),
+    path('episodes/<uuid:episode_id>/sources/',cv.episode_sources,name='episode_sources'),
+    path('recipients/resolve/',cv.resolve_recipient,name='resolve_recipient'),
+    path('grants/',cv.grants,name='patient_grants'),
+    path('grants/<str:kind>/<uuid:grant_id>/revoke/',cv.revoke_grant,name='revoke_grant'),
+    path('contributions/',cv.inbox,name='contribution_inbox'),
+    path('contributions/<uuid:contribution_id>/original/',cv.contribution_original,name='contribution_original'),
+    path('contributions/<uuid:contribution_id>/review/',cv.review_contribution,name='review_contribution'),
     path('facilities/search/',views.facilities,name='facility_search'),
     path('records/',views.records,name='records'),
+    path('records/search/',views.records_search,name='records_search'),
     path('records/<uuid:record_id>/',views.record,name='record'),
     path('records/<uuid:record_id>/versions/',views.new_version,name='source_version_create'),
     path('records/<uuid:record_id>/review/',views.review,name='metadata_review'),

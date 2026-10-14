@@ -1,0 +1,5 @@
+{% load static %}<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="same-origin"><title>Comfort · My health</title>
+{% for style in styles %}<link rel="stylesheet" href="{% static 'comfort/' %}{{ style }}">{% endfor %}
+<script type="module" src="{% static 'comfort/' %}{{ entry }}"></script></head>
+<body><div id="root"></div><noscript>Comfort needs JavaScript for this interface. <a href="/workspaces/">Open the existing records interface</a>.</noscript></body></html>

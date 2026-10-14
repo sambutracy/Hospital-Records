@@ -80,6 +80,9 @@ TIME_ZONE = 'UTC'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Small explicit hospital searches only; use a self-hosted endpoint for sovereign operation.
 FACILITY_SEARCH_URL = os.getenv('FACILITY_SEARCH_URL','https://nominatim.openstreetmap.org')
+ASSISTANT_SEARCH_SOURCE_LIMIT = int(os.getenv('ASSISTANT_SEARCH_SOURCE_LIMIT','30'))
+if not 1 <= ASSISTANT_SEARCH_SOURCE_LIMIT <= 30:
+    raise ImproperlyConfigured('ASSISTANT_SEARCH_SOURCE_LIMIT must be between 1 and 30.')
 PRIVATE_STORAGE_ROOT = Path(os.getenv('PRIVATE_STORAGE_ROOT', str(BASE_DIR.parent / '.runtime' / 'documents')))
 DATA_UPLOAD_MAX_MEMORY_SIZE = 262144
 FILE_UPLOAD_MAX_MEMORY_SIZE = 1048576

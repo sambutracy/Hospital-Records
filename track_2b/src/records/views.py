@@ -92,20 +92,77 @@ def upload(request, workspace_id, record_id=None):
 def records(request,workspace_id):
     if request.method=='POST':
         return upload(request,workspace_id)
+    return records_listing(request,workspace_id,request.GET)
+
+
+@require_POST
+@api
+def records_search(request,workspace_id):
+    """Private search terms travel in JSON, never navigation URLs or browser storage."""
+    values=body(request)
+    if set(values)-{'q','offset','order','document_type','reviewed','uploaded_from','uploaded_until','document_year'}:
+        raise ValueError('Unexpected filters.')
+    return records_listing(request,workspace_id,values)
+
+
+def records_listing(request,workspace_id,filters):
     services.authorize(request.user,workspace_id)
-    query=request.GET.get('q','').strip()
+    query=filters.get('q','').strip()
     if len(query)>160:
         raise ValueError('Query too long.')
-    offset=int(request.GET.get('offset',0))
+    offset=int(filters.get('offset',0))
     if not 0<=offset<=10000:
         raise ValueError('Invalid offset.')
     rows=SourceRecord.objects.filter(workspace_id=workspace_id,current_version__isnull=False)
+    episode_id=filters.get('episode')
+    if episode_id:
+        import uuid
+        from .models import CareEpisode
+        episode=CareEpisode.objects.filter(workspace_id=workspace_id,pk=uuid.UUID(episode_id)).first()
+        if not episode:
+            raise Http404
+        rows=rows.filter(current_version__episodesource__episode=episode).distinct()
     if query:
         rows=rows.filter(Q(current_version__original_filename__icontains=query)
             | Q(current_version__metadata_head__facility_name__value_text__icontains=query)
-            | Q(current_version__metadata_head__document_type__value_text__icontains=query))
-    rows=rows.select_related('current_version__metadata_head__document_type','current_version__metadata_head__document_date','current_version__metadata_head__facility_name').order_by('-created_at','id')
-    return JsonResponse({'records':[record_payload(record) for record in rows[offset:offset+50]],'offset':offset,'limit':50,'order':'upload time, not inferred clinical date'})
+            | Q(current_version__metadata_head__document_type__value_text__icontains=query)
+            | Q(current_version__extraction__pages__icontains=query))
+    from .metadata import TYPES
+    kind=filters.get('document_type','')
+    if kind:
+        if kind not in TYPES: raise ValueError('Invalid type.')
+        rows=rows.filter(current_version__metadata_head__document_type__value_text=kind)
+    reviewed=filters.get('reviewed','')
+    if reviewed not in ('','yes','no'): raise ValueError('Invalid review status.')
+    if reviewed=='yes': rows=rows.filter(current_version__metadata_head__revision__gt=0)
+    if reviewed=='no': rows=rows.filter(current_version__metadata_head__revision=0)
+    year=filters.get('document_year','')
+    if year:
+        year=int(year)
+        if not 1<=year<=9999: raise ValueError('Invalid year.')
+        rows=rows.filter(current_version__metadata_head__document_date__value_year=year)
+    from datetime import date,datetime,time,timedelta,timezone
+    for key,lookup in [('uploaded_from','current_version__created_at__gte'),('uploaded_until','current_version__created_at__lt')]:
+        value=filters.get(key,'')
+        if value:
+            boundary=date.fromisoformat(value)
+            if key=='uploaded_until': boundary+=timedelta(days=1)
+            rows=rows.filter(**{lookup:datetime.combine(boundary,time.min,tzinfo=timezone.utc)})
+    order=filters.get('order','upload')
+    if order not in ('upload','document_date'):
+        raise ValueError('Choose upload or document_date order.')
+    rows=rows.select_related('current_version__metadata_head__document_type','current_version__metadata_head__document_date','current_version__metadata_head__facility_name')
+    if order=='document_date':
+        from django.db.models import F
+        rows=rows.order_by(F('current_version__metadata_head__document_date__value_year').desc(nulls_last=True),
+            F('current_version__metadata_head__document_date__value_month').desc(nulls_last=True),
+            F('current_version__metadata_head__document_date__value_day').desc(nulls_last=True),'-created_at','id')
+    else:
+        rows=rows.order_by('-created_at','id')
+    total=rows.count()
+    return JsonResponse({'records':[record_payload(record) for record in rows[offset:offset+50]],'offset':offset,'limit':50,
+        'total':total,'has_more':offset+50<total,
+        'order':'known document-date components, newest first; partial dates are not precise care-event times; unknown dates last' if order=='document_date' else 'upload time, not inferred clinical date'})
 
 
 @require_GET
@@ -282,12 +339,14 @@ def assistant_cancel(request,workspace_id,task_id):
 @api
 def assistant_status(request,workspace_id):
     services.authorize(request.user,workspace_id)
+    from django.conf import settings
     from intelligence.trial import configuration, TrialError
     try:
         config=configuration()
     except TrialError:
-        return JsonResponse({'configured':False,'model':None})
+        return JsonResponse({'configured':False,'model':None,'facility_search_enabled':bool(settings.FACILITY_SEARCH_URL)})
     return JsonResponse({'configured':True,'model':config['model'],
+        'facility_search_enabled':bool(settings.FACILITY_SEARCH_URL),
         'text_only':config.get('identity',{}).get('modalities')==['text'],
         'community_derivative':config.get('identity',{}).get('community_derivative',False),
         'note':'configuration present; availability is checked when processing a request'})
@@ -301,6 +360,9 @@ def facilities(request,workspace_id):
     values=body(request)
     if set(values)!={'query'}:
         raise ValueError('Unexpected search fields.')
+    from django.conf import settings
+    if not settings.FACILITY_SEARCH_URL:
+        return JsonResponse({'error':'Hospital lookup is unavailable here. Enter the issuing facility name directly.'},status=503)
     try:
         results=facility_search.search(values['query'])
     except facility_search.SearchBusy:

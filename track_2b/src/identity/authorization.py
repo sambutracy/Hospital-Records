@@ -3,7 +3,9 @@ from django.db.models import F, Q
 from django.utils import timezone
 from .models import AccessCapability, PatientWorkspace
 
-SELF_ACTIONS = ('read_workspace_records', 'upload_source', 'review_metadata', 'prepare_packet')
+SELF_ACTIONS = ('read_workspace_records', 'upload_source', 'review_metadata', 'prepare_packet',
+                'manage_episode_links', 'create_share', 'revoke_share',
+                'review_contribution', 'authorize_provider_contribution', 'manage_profile', 'manage_medications')
 
 
 def effective_capabilities(user, action='read_workspace_records', at=None):

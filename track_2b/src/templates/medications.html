@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Medications · Comfort{% endblock %}
+{% block content %}
+<div id="comfort-medications" data-api-base="/api/workspaces/{{ workspace.pk }}/"><h1>Medications</h1>
+<p class="lead">Keep a record of medicines prescribed or taken around your different visits.</p><p id="medication-message" role="status" aria-live="polite"></p>
+<div class="profile-grid"><section class="panel" aria-labelledby="medication-editor-title"><h2 id="medication-editor-title">Add a medication entry</h2>
+<p class="quiet">Copy the medicine and instructions as stated on the prescription or record what you took. These are your reported details; Comfort does not calculate doses, check interactions or recommend changes.</p>
+<form id="medication-form" autocomplete="off">{% csrf_token %}
+<label for="medicine-name">Medicine name</label><input id="medicine-name" maxlength="160" required>
+<label for="medicine-dose">Dose / strength as written (optional)</label><input id="medicine-dose" maxlength="120">
+<label for="medicine-frequency">Frequency as written (optional)</label><input id="medicine-frequency" maxlength="120">
+<label for="medicine-route">How it was taken (optional)</label><input id="medicine-route" maxlength="64" placeholder="e.g. as stated on the label">
+<label for="medicine-instructions">Instructions or your notes</label><textarea id="medicine-instructions" maxlength="500" rows="3"></textarea>
+<label for="medicine-use">What are you recording?</label><select id="medicine-use"><option value="unknown">Not specified</option><option value="reported_prescribed">Prescribed — taking not confirmed</option><option value="reported_taken">Taken / taking — patient reported</option><option value="not_taken">Not taken — patient reported</option></select>
+<fieldset><legend>Visit / record date</legend><label for="medicine-date-precision">How much of the date is known?</label><select id="medicine-date-precision"><option value="unknown">Unknown / not saved</option><option value="year">Year only</option><option value="month">Month and year</option><option value="day">Full date</option></select>
+<div class="date-parts"><label>Visit year<input id="medicine-year" type="number" min="1" max="9999"></label><label>Visit month<input id="medicine-month" type="number" min="1" max="12"></label><label>Visit day<input id="medicine-day" type="number" min="1" max="31"></label></div></fieldset>
+<label for="medicine-episode">Care episode (optional)</label><select id="medicine-episode"><option value="">No episode selected</option></select>
+<label for="medicine-source">Supporting original, such as a prescription (optional)</label><select id="medicine-source"><option value="">No original linked</option></select><button id="more-medication-sources" type="button" class="secondary" hidden>Load older originals</button>
+<p class="quiet">Each entry can have its own visit date and episode. Linking a prescription does not confirm that the medicine was taken. Uploaded originals remain unchanged.</p>
+<button type="submit">Save medication entry</button><button id="new-medication" type="button" class="secondary">Start a new entry</button></form></section>
+<section class="panel" aria-labelledby="medication-list-title"><h2 id="medication-list-title">Your medication records</h2><p class="quiet">Medication notes stay in this private list. To share a prescription original, select it in your records and approve a packet.</p>
+<label><input id="show-archived-medications" type="checkbox"> Show archived entries</label><button id="refresh-medications" type="button" class="secondary">Refresh entries</button><div id="medication-list" aria-live="polite"></div><button id="more-medications" type="button" class="secondary" hidden>Load more entries</button></section></div>
+<noscript><p>Saving and editing currently require JavaScript.</p></noscript></div><script src="{% static 'medications.js' %}" defer></script>
+{% endblock %}

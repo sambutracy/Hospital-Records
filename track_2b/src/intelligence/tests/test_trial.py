@@ -20,6 +20,16 @@ def reference_response(case):
 
 
 class TrialContractTests(unittest.TestCase):
+    def test_private_key_file_overrides_legacy_key_without_exposing_it(self):
+        with TemporaryDirectory() as folder:
+            key=Path(folder)/'server.key'
+            key.write_text('fictional-file-key\n')
+            values={'LLM_NAME':trial.LOCAL_TEXT_MODEL,'LLM_BASE_URL':'http://inference:8080/v1',
+                'LLM_API_KEY':'fictional-old-key','LLM_API_KEY_FILE':str(key)}
+            self.assertEqual(trial.configuration(Path(folder)/'.env',values)['key'],'fictional-file-key')
+            key.write_text('invalid\nmultiline')
+            with self.assertRaises(trial.TrialError): trial.configuration(Path(folder)/'.env',values)
+
     def test_local_quantized_model_identity_is_explicit(self):
         config=trial.configuration(Path('/no-local-env'),{'LLM_NAME':trial.LOCAL_TEXT_MODEL,
             'LLM_BASE_URL':'http://host.docker.internal:9001/v1','LLM_API_KEY':''})

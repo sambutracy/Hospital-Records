@@ -65,7 +65,7 @@ class AuthorizationTests(IdentityFixture, TestCase):
         self.assertTrue(AuditEvent.objects.filter(actor_user=self.alice, action='workspace.open', decision='deny').exists())
 
     def test_unknown_action_and_role_flags_do_not_grant_access(self):
-        self.assertFalse(can_access_workspace(self.alice, self.workspace.pk, 'create_share'))
+        self.assertFalse(can_access_workspace(self.alice, self.workspace.pk, 'manage_appointments'))
         self.assertFalse(can_access_workspace(self.bob, self.workspace.pk))
         self.bob.is_staff = True
         self.bob.is_superuser = True

@@ -92,6 +92,26 @@ class AssistantTests(TestCase):
         self.assertNotIn('test-api-key-not-real',json.dumps(task.configuration))
         self.assertEqual(task.usage['total_tokens'],150)
 
+    def test_older_text_match_reaches_model_when_recent_uploads_exceed_limit(self):
+        older=self.source(self.alice,self.workspace,'Historical zebracare appointment summary.','old-neutral.pdf')
+        for number in range(31):
+            services.ingest(self.alice,self.workspace.pk,SimpleUploadedFile(f'new-{number}.pdf',pdf(f'Unrelated document {number}')))
+        task=self.create(parameters={'query':'find my zebracare record'})
+        self.assertIn(older.pk,list(task.sources.values_list('source_version_id',flat=True)))
+        self.assertNotIn(self.foreign.pk,list(task.sources.values_list('source_version_id',flat=True)))
+        self.assertEqual(task.coverage['included_records'],30)
+        self.assertEqual(task.coverage['lexical_preselection_records'],34)
+        self.assertEqual(task.coverage['lexical_matches'],1)
+        self.assertFalse(task.coverage['all_records_in_model_context'])
+        response=self.client.get(self.base+'records/',{'q':'zebracare'})
+        self.assertEqual([row['current_version']['id'] for row in response.json()['records']],[str(older.pk)])
+        assistant.cancel_task(self.alice,self.workspace.pk,task.pk)
+        with override_settings(ASSISTANT_SEARCH_SOURCE_LIMIT=10):
+            bounded=self.create(parameters={'query':'find my zebracare record'})
+        self.assertEqual(bounded.coverage['included_records'],10)
+        self.assertEqual(bounded.coverage['record_limit'],10)
+        self.assertIn(older.pk,list(bounded.sources.values_list('source_version_id',flat=True)))
+
     def test_pending_api_returns_saved_task_without_invented_result(self):
         task=self.create()
         token=self.claim(task)

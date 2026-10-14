@@ -7,5 +7,10 @@
 **/*.sqlite3
 src/staticfiles
 docs
-data
+data/*
+!data/comfort-evaluation-v1.json
+!data/comfort-evaluation-v2.json
 .git
+frontend/node_modules
+frontend/dist
+frontend/storybook-static

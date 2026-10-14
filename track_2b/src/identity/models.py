@@ -116,7 +116,7 @@ class CapabilityRule(UUIDModel):
         db_table = 'capability_rules'
         constraints = [
             models.UniqueConstraint(fields=['authority_kind', 'capability_key', 'scope_kind'], name='capability_combination'),
-            models.CheckConstraint(condition=Q(authority_kind='membership', capability_key__in=['read_workspace_records', 'upload_source', 'review_metadata', 'prepare_packet'], scope_kind='workspace'), name='installed_capability_rule'),
+            models.CheckConstraint(condition=Q(authority_kind='membership', capability_key__in=['read_workspace_records', 'upload_source', 'review_metadata', 'prepare_packet', 'manage_episode_links', 'create_share', 'revoke_share', 'review_contribution', 'authorize_provider_contribution', 'manage_profile', 'manage_medications'], scope_kind='workspace'), name='installed_capability_rule'),
         ]
 
 
@@ -155,3 +155,58 @@ class AuditEvent(models.Model):
             models.Index(fields=['workspace', 'occurred_at'], name='audit_workspace_time'),
             models.Index(fields=['actor_user', 'occurred_at'], name='audit_actor_time'),
         ]
+
+
+BLOOD_GROUPS = ('unknown', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')
+CONTACT_RELATIONSHIPS = ('relative', 'parent', 'child', 'sibling', 'spouse_partner', 'friend',
+                         'caregiver', 'guardian', 'clinician', 'other')
+IDENTIFIER_TYPES = ('none', 'national_id', 'passport', 'hospital_id', 'other')
+
+
+class PatientPersonalDetails(UUIDModel):
+    workspace = models.OneToOneField(PatientWorkspace, on_delete=models.PROTECT, related_name='personal_details')
+    full_name = models.CharField(max_length=160, blank=True)
+    preferred_name = models.CharField(max_length=80, blank=True)
+    email = models.EmailField(max_length=254, blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    address = models.CharField(max_length=500, blank=True)
+    gender = models.CharField(max_length=60, blank=True)
+    identifier_type = models.CharField(max_length=16, default='none')
+    identifier_number = models.CharField(max_length=80, blank=True)
+    identifier_issuer = models.CharField(max_length=80, blank=True)
+    blood_group = models.CharField(max_length=8, default='unknown')
+    revision = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(default=timezone.now)
+    updated_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    class Meta:
+        db_table = 'patient_personal_details'
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'id'], name='personal_details_workspace_id'),
+            models.CheckConstraint(condition=Q(blood_group__in=BLOOD_GROUPS), name='personal_blood_group'),
+            models.CheckConstraint(condition=Q(identifier_type__in=IDENTIFIER_TYPES), name='personal_identifier_type'),
+            models.CheckConstraint(condition=Q(identifier_type='none',identifier_number='',identifier_issuer='') | (~Q(identifier_type='none') & ~Q(identifier_number='')), name='personal_identifier_value'),
+            models.CheckConstraint(condition=Q(revision__gt=0), name='personal_revision')]
+
+
+class CareCircleEntry(UUIDModel):
+    workspace = models.ForeignKey(PatientWorkspace, on_delete=models.PROTECT, related_name='care_circle')
+    full_name = models.CharField(max_length=160)
+    relationship = models.CharField(max_length=32, default='relative')
+    email = models.EmailField(max_length=254, blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    notes = models.CharField(max_length=500, blank=True)
+    is_next_of_kin = models.BooleanField(default=False)
+    is_emergency_contact = models.BooleanField(default=False)
+    recipient_user = models.ForeignKey(User, null=True, on_delete=models.PROTECT, related_name='+')
+    status = models.CharField(max_length=16, default='active')
+    revision = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(default=timezone.now)
+    updated_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='+')
+    class Meta:
+        db_table = 'care_circle_entries'
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'id'], name='circle_workspace_id'),
+            models.UniqueConstraint(fields=['workspace', 'recipient_user'], condition=Q(status='active',recipient_user__isnull=False), name='circle_active_account_once'),
+            models.CheckConstraint(condition=Q(relationship__in=CONTACT_RELATIONSHIPS), name='circle_relationship'),
+            models.CheckConstraint(condition=Q(status__in=['active','archived']), name='circle_status'),
+            models.CheckConstraint(condition=Q(revision__gt=0) & ~Q(full_name=''), name='circle_revision_name')]

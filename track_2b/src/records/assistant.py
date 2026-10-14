@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 from django.db import IntegrityError, transaction
+from django.conf import settings
 from django.http import Http404
 from django.utils import timezone
 from .glossary import ENTRIES, VERSION as GLOSSARY_VERSION
@@ -15,6 +16,15 @@ from .storage import read_original
 SOURCE_LIMIT = 30
 TEXT_LIMIT = 2000
 CONTEXT_LIMIT = 48000
+CONTEXT_SERIALIZATION = 'sources-first-numeric-v2'
+
+
+def serialize_context(context):
+    # Reusable evidence precedes the changing query. This changes no scope/content.
+    ordered={'sources':context['sources']}
+    ordered.update({key:value for key,value in context.items() if key not in ('sources','request')})
+    ordered['request']=context['request']
+    return json.dumps(ordered,ensure_ascii=False)
 
 
 def digest(value):
@@ -96,10 +106,13 @@ def create_task(user,workspace_id,kind,parameters):
                 raise Conflict('An assistant request of this kind is already pending. View or cancel it before creating another.')
             revision=None
             selected=[]
+            request_limit=settings.ASSISTANT_SEARCH_SOURCE_LIMIT if kind=='search' else SOURCE_LIMIT
             if kind=='search':
                 records=SourceRecord.objects.filter(workspace=workspace,current_version__isnull=False).order_by('-created_at','id')
                 total=records.count()
-                selected=[(record.current_version,None) for record in records.select_related('current_version')[:SOURCE_LIMIT]]
+                from .retrieval import ranked_candidates
+                records, lexical_matches = ranked_candidates(records, parameters['query'])
+                selected=[(record.current_version,None) for record in records.select_related('current_version')[:request_limit]]
             elif kind=='packet_overview':
                 packet=ConsultationPacket.objects.filter(workspace=workspace,pk=parameters['packet_id']).first()
                 if not packet:
@@ -139,9 +152,14 @@ def create_task(user,workspace_id,kind,parameters):
                     raise ValueError('The term must occur in the selected source context.')
                 parameters['definition_ids']=candidates
             coverage={'accessible_records_at_request':total,'included_records':len(selected),
-                'record_limit':SOURCE_LIMIT,'truncated_sources':truncated_count,
+                'record_limit':request_limit,'truncated_sources':truncated_count,
                 'text_chars_per_source':TEXT_LIMIT,'text_available_sources':sum(extraction is not None for _,_,_,extraction,_ in snapshots),
                 'snapshot':True,'imaging_pixels_included':False}
+            if kind=='search':
+                coverage.update({'candidate_strategy':'authorized-current-full-text-or-recent-v1',
+                    'lexical_preselection_records':total, 'lexical_matches':lexical_matches,
+                    'all_records_in_model_context':len(selected)==total,
+                    'scope_note':'Lexical ranking covers authorized current versions, including older uploads. Apertus sees only the selected bounded contexts; no match does not establish absence from medical history.'})
             limited=kind=='packet_overview' and coverage['text_available_sources']==0 and all(version.content_kind=='medical_image' for version,_ in selected)
             completion={}
             if limited:
@@ -191,6 +209,7 @@ def cancel_task(user,workspace_id,task_id):
 
 def task_context(task):
     sources=list(task.sources.select_related('source_version').order_by('source_label'))
+    sources.sort(key=lambda source:int(source.source_label[1:]))
     if not sources:
         raise ValueError('Missing source snapshots.')
     for source in sources:
@@ -236,30 +255,36 @@ def validate_response(task,payload,sources):
         raise ValueError('Invalid assistant result.')
     labels={source.source_label:source for source in sources}
     if task.kind=='search':
-        if set(payload)!={'matches','abstained'} or not isinstance(payload['matches'],list) or len(payload['matches'])>10:
+        if set(payload)!={'matches','abstained'} or not isinstance(payload['matches'],list) or len(payload['matches'])>3:
             raise ValueError('Invalid search result.')
         matches=[]
         seen=set()
         for item in payload['matches']:
             if not isinstance(item,dict) or set(item)!={'source_id','reason','citations'} or item['source_id'] not in labels or item['source_id'] in seen:
                 raise ValueError('Invalid source selection.')
-            if not isinstance(item['reason'],str) or not 1<=len(item['reason'])<=500:
+            if not isinstance(item['reason'],str) or not 1<=len(item['reason'])<=120:
                 raise ValueError('Invalid search reason.')
             source=labels[item['source_id']]
             seen.add(item['source_id'])
+            citations=checked_citations(item['citations'],sources,item['source_id'])
+            if len(citations)!=1 or len(citations[0]['quote'])>200:
+                raise ValueError('Search requires one bounded quotation.')
             matches.append({'source_version_id':str(source.source_version_id),'reason':item['reason'],
-                'citations':checked_citations(item['citations'],sources,item['source_id'])})
+                'citations':citations})
         if payload['abstained']!= (not matches):
             raise ValueError('Invalid abstention.')
         return {'matches':matches,'abstained':payload['abstained']}
     if task.kind=='packet_overview':
-        if set(payload)!={'items','abstained'} or not isinstance(payload['items'],list) or len(payload['items'])>8:
+        if set(payload)!={'items','abstained'} or not isinstance(payload['items'],list) or len(payload['items'])>4:
             raise ValueError('Invalid overview.')
         items=[]
         for item in payload['items']:
-            if not isinstance(item,dict) or set(item)!={'text','citations'} or not isinstance(item['text'],str) or not 1<=len(item['text'])<=700:
+            if not isinstance(item,dict) or set(item)!={'text','citations'} or not isinstance(item['text'],str) or not 1<=len(item['text'])<=300:
                 raise ValueError('Invalid overview item.')
-            items.append({'text':item['text'],'citations':checked_citations(item['citations'],sources)})
+            citations=checked_citations(item['citations'],sources)
+            if len(citations)>2 or any(len(citation['quote'])>300 for citation in citations):
+                raise ValueError('Overview quotations exceed the output bound.')
+            items.append({'text':item['text'],'citations':citations})
         if payload['abstained']!=(not items):
             raise ValueError('Invalid abstention.')
         return {'items':items,'abstained':payload['abstained'],'status':'draft_for_patient_review',

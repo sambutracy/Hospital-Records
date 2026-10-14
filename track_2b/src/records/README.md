@@ -1,5 +1,7 @@
 # Comfort: records backend and servers
 
+The patient-to-recipient return workflow is described in [CONTINUITY.md](CONTINUITY.md): exact approved packet reads, independent note-submission authority, patient review, named episodes and precision-preserving document-date order. All 155 identity/records/assistant/continuity/profile/medication PostgreSQL tests passed on 14 October. Invited accounts do not establish verified professional identity. [Medication notes](MEDICATIONS.md) preserve distinct prescribed/taken reports across visits. The private [profile and Care circle](../identity/PROFILE.md) do not automatically grant or disclose records.
+
 The local Compose stack runs PostgreSQL 18, Keycloak 26.8.0, Django/Gunicorn and a separate Python extraction/assistant worker. The web/worker use the restricted `continuity_app` role; only the migration service receives owner credentials. A pinned local CPU Apertus 8B text conversion can now serve inference while CSCS approval is pending; see [setup](../intelligence/README.md). No remote server was provisioned. The Windows host inference setup still needs a portable submission deployment.
 
 From the repository root (the directory containing `track_2b/`):
@@ -67,7 +69,7 @@ Packet JSON:
 {"purpose": "Demo consultation", "source_version_ids": ["SOURCE_VERSION_UUID"]}
 ```
 
-A consultation packet is a private immutable revision, **not a clinician share grant**. Later source corrections/replacements do not change its chosen versions or metadata snapshots. It includes no AI-generated clinical summary or unselected record. Recipient grants, expiry/revocation of clinician shares, contribution inbox and care/appointment workflows are not implemented by these routes.
+A consultation packet is a private immutable revision. Later source corrections/replacements do not change its chosen versions or metadata snapshots. It includes no AI-generated clinical summary or unselected record. Creating it does not itself grant access. The separate continuity routes now provide recipient grants with expiry/revocation, an independently authorized contribution inbox and named episodes; appointment/referral lifecycles remain pending. See [CONTINUITY.md](CONTINUITY.md).
 
 ## Extraction and model states
 
@@ -105,10 +107,12 @@ PostgreSQL composite workspace FKs backstop source/job/evidence/assertion/packet
 
 Verified on 10 October 2026: all 68 identity/records tests passed on native PostgreSQL. The actual running HTTP API and worker passed a synthetic upload/duplicate/download/review/packet check, including denial of an unrelated patient. These HTTP checks used local synthetic session fixtures; earlier real Keycloak browser checks are documented in the application README. Restarting PostgreSQL, Keycloak, app and worker retained the exact original checksum, extraction, approved packet snapshot and waiting job. All four services returned healthy. Migration drift and Compose configuration checks passed.
 
-Tests distinguish mocked model-protocol outputs from live Apertus measurements. No live inference result exists while API approval is pending. The exact clean-checkout `make run` remains unverified on this Windows host; its Docker Compose launch commands were exercised against the existing local stack.
+Tests distinguish mocked model-protocol outputs from live Apertus measurements. CSCS approval remains pending, but actual development generations have been recorded using the pinned local text conversion; broader quality evaluation remains unfinished. The exact clean-checkout `make run` remains unverified on this Windows host; its Docker Compose launch commands were exercised against the existing local stack.
 
 On 13 October the Makefile moved to the repository root following the organizer's clarification. GNU Make parsed/dry-ran all targets in a disposable container; equivalent root-level bootstrap/build/start Compose commands completed with all four services healthy and existing configuration retained. This is an existing-stack launch check, not a clean-checkout result.
 
 Later on 13 October all 83 identity/records tests passed on native PostgreSQL, including the new image/DICOM paths, source/header matching, manual-review immutability, preview isolation/EXIF removal/limits and restricted-role processing. The actual local HTTP API and real worker processed authored synthetic MRI PNG, MRI DICOM and multiframe ultrasound DICOM under continuity_app; original hashes matched, the PNG preview hash matched, all three jobs reached manual_review without AI proposals, and an unrelated synthetic actor's preview request returned 404. These fixtures validate the bounded handling pipeline, not clinical accuracy, real-study compatibility or Apertus vision performance.
 
 Restarting all four servers retained those exact source IDs, inspections, preview/original hashes and manual-review states; all services returned healthy. The expanded text-metadata vocabulary is versioned as records-metadata-v2 and its prompt hash is recorded on each actual generation.
+
+14 October review update: 161 PostgreSQL tests pass, including profile/medication, continuity and frozen-evaluation boundaries. Default root `make run` includes containerized Apertus; see [DEPLOYMENT.md](../intelligence/DEPLOYMENT.md). Literal keyword search now includes extracted text; Apertus candidates use lexical ranking across all authorized current versions before the bounded model snapshot. See [CLINICAL_DATA.md](CLINICAL_DATA.md) for patient-reported/confirmed/AI distinctions. Earlier dated test counts and standalone Windows setup above are historical.

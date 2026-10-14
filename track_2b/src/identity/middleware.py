@@ -24,7 +24,7 @@ class AuthenticationLifetimeMiddleware:
         response = self.get_response(request)
         response['Cache-Control'] = 'no-store, private'
         response['Content-Security-Policy'] = (
-            "default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'; connect-src 'self'; "
+            "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; script-src 'self'; connect-src 'self'; "
             f"form-action {self.form_action}; frame-ancestors 'none'; base-uri 'none'"
         )
         return response

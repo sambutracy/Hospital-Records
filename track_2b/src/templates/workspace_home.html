@@ -4,7 +4,7 @@
 {% block content %}
 <div id="comfort-workspace" data-api-base="/api/workspaces/{{ workspace.pk }}/">
 <p class="eyebrow">YOUR WORKSPACE</p><h1 class="workspace-title">Your records, ready for your next visit.</h1>
-<p class="lead">Welcome, {{ workspace.subject_patient.person.display_name }}. Keep originals together, check their details and choose what to bring.</p>
+<p class="lead">Welcome, {{ patient_display_name }}. Keep originals together, check their details and choose what to bring.</p>
 <p id="workspace-message" role="status" aria-live="polite"></p>
 <div class="workspace-grid">
 <section class="panel" aria-labelledby="upload-title"><h2 id="upload-title">Add a record</h2>
@@ -21,7 +21,9 @@
 <p id="assistant-availability" class="quiet">Keyword search works now. Apertus can suggest relevant records once model access is connected. Suggestions always link back to their sources.</p></section>
 </div>
 <section class="panel records-panel" aria-labelledby="records-title"><div class="section-heading"><h2 id="records-title">Your records</h2><button id="refresh-records" class="secondary" type="button">Refresh</button></div>
-<p class="quiet">Ordered by upload time. Document dates remain exactly as confirmed, including partial or unknown dates.</p>
+<label for="record-order">Record order</label><select id="record-order"><option value="upload">Most recently uploaded</option><option value="document_date">Document date — newest known components first</option></select>
+<label for="record-episode">Care episode filter</label><select id="record-episode"><option value="">All episodes</option></select>
+<p id="record-order-description" class="quiet">Ordered by upload time. Document dates remain exactly as confirmed, including partial or unknown dates.</p>
 <div id="record-list" aria-live="polite"><p>Loading your records…</p></div>
 <button id="more-records" class="secondary" type="button" hidden>Load more records</button></section>
 <section id="record-details" class="panel" aria-labelledby="details-title" hidden><h2 id="details-title">Review a record</h2><div id="source-details"></div><div id="source-preview"></div><div id="metadata-proposals"></div>
@@ -31,6 +33,7 @@
 <fieldset class="facility-location"><legend>Facility location (optional)</legend>
 <label for="facility-query">Search the hospital or clinic</label><input id="facility-query" maxlength="180" placeholder="e.g. Aga Khan University Hospital, Nairobi" aria-describedby="facility-location-help">
 <button id="facility-search" class="secondary" type="button">Search hospitals</button>
+<p id="facility-availability" class="quiet" hidden>Hospital lookup is unavailable here. You can enter the issuing facility name directly above.</p>
 <p id="facility-location-help" class="quiet">Enter a public facility name and town only. Choose the correct result below; its name and Google Maps pin are saved when you confirm these details.</p>
 <p class="quiet">Search data: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>.</p>
 <div id="facility-results" aria-live="polite"></div>
@@ -45,8 +48,26 @@
 <section class="panel" aria-labelledby="packet-title"><h2 id="packet-title">Prepare for a consultation</h2><p id="selection-count">No records selected.</p>
 <form id="packet-form" autocomplete="off"><label for="packet-purpose">Visit or purpose</label><input id="packet-purpose" maxlength="180" placeholder="e.g. follow-up consultation" required><button type="submit">Create a private packet</button></form>
 <p class="quiet">Select records above. A packet preserves exactly those versions and their confirmed details. Sharing with a clinician is a separate step.</p><div id="packet-list"></div></section>
+<section class="panel" aria-labelledby="continuity-title"><h2 id="continuity-title">Connect your care</h2>
+<p>Your recipient can find their Comfort account ID on the Received access page. Check the person before granting access; account names do not verify professional identity.</p>
+<p id="continuity-message" role="status"></p>
+<form id="episode-form"><label for="episode-title">Name a care episode</label><input id="episode-title" maxlength="180" placeholder="e.g. September follow-up" required><button type="submit" class="secondary">Create episode</button></form>
+<label for="episode-link-target">Group the selected originals into an episode</label><select id="episode-link-target"></select><button type="button" id="episode-link-sources" class="secondary">Link selected records</button>
+<form id="grant-form"><h3>Approve temporary access</h3>
+<label for="grant-care-contact">Choose from your Care circle</label><select id="grant-care-contact"><option value="">Enter an account ID below, or choose a saved contact</option></select><p class="quiet">Save relatives, next of kin and other contacts in <a href="{% url 'patient_profile' workspace_id=workspace.pk %}">My profile</a>. A saved contact needs a linked Comfort account to receive app access.</p>
+<label for="grant-recipient">Recipient’s Comfort account ID</label><input id="grant-recipient" maxlength="36" required autocomplete="off"><button type="button" id="check-recipient" class="secondary">Check recipient</button><p id="recipient-preview" role="status"></p>
+<label for="grant-kind">Permission</label><select id="grant-kind"><option value="read">Read an approved packet</option><option value="contribute">Submit a note to an episode — no record access</option></select>
+<label for="grant-target">Packet or episode</label><select id="grant-target" required></select>
+<label for="grant-purpose">Purpose</label><input id="grant-purpose" maxlength="180" required>
+<label for="grant-minutes">Expires after (minutes)</label><input id="grant-minutes" type="number" min="1" max="10080" value="60" required>
+<label><input id="grant-confirm" type="checkbox" required> I checked the recipient and approve this specific permission.</label>
+<p class="quiet">Read access and contribution permission are independent. Revocation stops future access; downloaded copies cannot be recalled. AI drafts are not included in this read grant.</p>
+<button type="submit">Approve this permission</button></form>
+<button type="button" id="refresh-continuity" class="secondary">Refresh episodes, permissions and inbox</button><div id="grant-list"></div>
+<h3>Incoming notes</h3><p class="quiet">Review the original before accepting. Pending or rejected notes stay out of your record history, search and new packets. Acceptance preserves the submitter’s attribution; it does not verify their credentials or clinical findings.</p><div id="contribution-inbox"></div></section>
 <section class="panel" aria-labelledby="assistant-title"><h2 id="assistant-title">Apertus suggestions</h2><p class="quiet">Check every suggestion against its cited original. Packet overviews are drafts and do not change your packet. Images receive no automated clinical interpretation.</p><div id="assistant-results" aria-live="polite"></div></section>
 <noscript><p>This workspace needs JavaScript for uploads, review and assistant controls.</p></noscript>
 </div>
 <script src="{% static 'workspace.js' %}" defer></script>
+<script src="{% static 'continuity.js' %}" defer></script>
 {% endblock %}

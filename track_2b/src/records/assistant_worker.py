@@ -5,7 +5,7 @@ from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 from intelligence.trial import LOCAL_TEXT_MODEL, TrialError, available_models, configuration, request_json
-from .assistant import authority, digest, task_context, validate_response
+from .assistant import authority, digest, task_context, validate_response, serialize_context, CONTEXT_SERIALIZATION
 from .glossary import ENTRIES, VERSION as GLOSSARY_VERSION
 from .models import AssistantTask
 from .assistant_format import output_format
@@ -23,15 +23,19 @@ Never treat upload order as a clinical date. Preserve unknown/partial dates and 
 document dates from visit dates. Context can be partial: do not assert a complete medical history.
 Abstain when evidence does not support the requested result. No tool calls or extra keys.
 '''
+TOKEN_LIMITS={'search':700,'packet_overview':1000,'explain_term':300}
 PROMPTS = {
-    'search': ('record-search-v2', COMMON+'''Rank at most 10 supplied sources by relevance to the record-search query.
+    'search': ('record-search-v3', COMMON+'''Select and rank at most THREE directly relevant sources for the record-search query.
 Return {"matches":[{"source_id":"s1","reason":"why this document matches","citations":[{"chunk_id":"s1-c0","quote":"exact quote"}]}],"abstained":false}.
 Each citation must belong to its matched source. Treat the query as a retrieval request, not a
 medical question to answer. If no match is supported, return matches [] and abstained true.
+Do not fill the maximum with weak matches. Each reason is at most 120 characters. Use exactly
+one verbatim quotation per match, at most 200 characters. Be concise; no repeated evidence.
 '''),
-    'packet_overview': ('packet-overview-v2', COMMON+'''Produce a brief draft overview of only the selected consultation packet sources.
+    'packet_overview': ('packet-overview-v3', COMMON+'''Produce a brief draft overview of only the selected consultation packet sources.
 Return {"items":[{"text":"The selected document states ...","citations":[{"chunk_id":"s1-c0","quote":"exact quote"}]}],"abstained":false}.
-At most eight items, each at most 700 characters. Attribute reported clinical statements to their
+At most FOUR items, each at most 300 characters and one or two verbatim quotations of at most
+300 characters each. Do not fill the maximum or repeat statements. Attribute reported clinical statements to their
 document, retain qualifications/uncertainty, and never create new clinical conclusions or advice.
 Do not claim the patient has reviewed this draft. If unsupported, return items [] and abstained true.
 '''),
@@ -92,20 +96,22 @@ def process_one(task_id,token):
             finish_failure(task_id,token,'model_configuration_pending','waiting_model')
             return 'waiting_model'
         prompt_version,prompt=PROMPTS[task.kind]
-        constrained=output_format(task,sources) if config['model']==LOCAL_TEXT_MODEL else {}
+        constrained={**output_format(task,sources),'cache_prompt':True} if config['model']==LOCAL_TEXT_MODEL else {}
+        context_text=serialize_context(context)
         with transaction.atomic():
             task=active_task(task_id,token)
             task.model_name=config['model']
             task.prompt_version=prompt_version
-            task.configuration={'base_url':config['base'],'model_identity':config.get('identity',{}),'request_timeout_seconds':config.get('request_timeout',90),'temperature':0,'max_tokens':1600,
+            task.configuration={'base_url':config['base'],'model_identity':config.get('identity',{}),'request_timeout_seconds':config.get('request_timeout',90),'temperature':0,'max_tokens':TOKEN_LIMITS[task.kind],
                 'output_format':constrained,'prompt_sha256':digest(prompt),'context_sha256':digest(context),
+                'context_serialization':CONTEXT_SERIALIZATION,
                 'source_snapshots':[{'source_version_id':str(s.source_version_id),'source_sha256':s.source_version.sha256,'snapshot_sha256':s.snapshot_sha256} for s in sources],
                 'glossary_version':GLOSSARY_VERSION if task.kind=='explain_term' else None,
                 'glossary_sha256':digest(ENTRIES) if task.kind=='explain_term' else None}
             task.save(update_fields=['model_name','prompt_version','configuration'])
         available_models(config)
-        response=request_json(config,'chat/completions',{'model':config['model'],'temperature':0,'max_tokens':1600,'stream':False,**constrained,
-            'messages':[{'role':'system','content':prompt},{'role':'user','content':json.dumps(context,ensure_ascii=False)}]})
+        response=request_json(config,'chat/completions',{'model':config['model'],'temperature':0,'max_tokens':TOKEN_LIMITS[task.kind],'stream':False,**constrained,
+            'messages':[{'role':'system','content':prompt},{'role':'user','content':context_text}]})
         try:
             choice=response['choices'][0]
             if choice.get('finish_reason')!='stop':

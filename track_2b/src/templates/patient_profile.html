@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}My profile · Comfort{% endblock %}
+{% block content %}
+<div id="comfort-profile" data-api-base="/api/workspaces/{{ workspace.pk }}/">
+<h1>My profile</h1><p class="lead">Your personal details and the people you want to keep close to your care.</p>
+<p id="profile-message" role="status" aria-live="polite"></p>
+<div class="profile-grid"><section class="panel" aria-labelledby="personal-title"><h2 id="personal-title">Personal details</h2>
+<p class="quiet">These details stay in your private profile. Saving them does not change sign-in identity or add them to shared packets. Blood group is self-reported; check it against a trusted record.</p>
+<form id="profile-form" autocomplete="off">{% csrf_token %}
+<fieldset id="personal-fields" disabled><legend>Personal information</legend>
+<label for="profile-full-name">Full name</label><input id="profile-full-name" maxlength="160" required>
+<label for="profile-preferred-name">Preferred name</label><input id="profile-preferred-name" maxlength="80">
+<label for="profile-email">Contact email</label><input id="profile-email" type="email" maxlength="254">
+<label for="profile-phone">Phone</label><input id="profile-phone" type="tel" maxlength="40">
+<label for="profile-address">Address</label><textarea id="profile-address" maxlength="500" rows="3"></textarea>
+<label for="profile-gender">Gender (optional)</label><input id="profile-gender" maxlength="60">
+<fieldset><legend>Date of birth</legend><label for="birth-precision">How much of the date is known?</label><select id="birth-precision"><option value="unknown">Unknown / not saved</option><option value="year">Year only</option><option value="month">Month and year</option><option value="day">Full date</option></select>
+<div class="date-parts"><label>Birth year<input id="birth-year" type="number" min="1" max="9999"></label><label>Birth month<input id="birth-month" type="number" min="1" max="12"></label><label>Birth day<input id="birth-day" type="number" min="1" max="31"></label></div></fieldset>
+<label for="profile-id-type">ID type (optional)</label><select id="profile-id-type"><option value="none">No ID saved</option><option value="national_id">National ID</option><option value="passport">Passport</option><option value="hospital_id">Hospital / patient number</option><option value="other">Other</option></select>
+<label for="profile-id-number">ID number</label><input id="profile-id-number" type="password" autocomplete="off" maxlength="80"><label><input id="show-profile-id" type="checkbox"> Show ID number</label>
+<label for="profile-id-issuer">Issuing country or institution</label><input id="profile-id-issuer" maxlength="80">
+<label for="profile-blood-group">Blood group</label><select id="profile-blood-group"><option value="unknown">Unknown / not saved</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select>
+<button type="submit">Save personal details</button></fieldset><button id="reload-profile" type="button" class="secondary">Reload saved details</button></form></section>
+<section class="panel" aria-labelledby="circle-title"><h2 id="circle-title">Care circle</h2><p>Save relatives, next of kin, caregivers and other people you may want to contact or share with.</p><p class="quiet">Adding a person gives them no access. A guardian label describes the contact; verified guardian authority is a separate future workflow.</p>
+<form id="contact-form" autocomplete="off"><h3 id="contact-editor-title">Add a contact</h3>
+<label for="contact-name">Contact name</label><input id="contact-name" maxlength="160" required>
+<label for="contact-relationship">Relationship</label><select id="contact-relationship"><option value="relative">Relative</option><option value="parent">Parent</option><option value="child">Child</option><option value="sibling">Sibling</option><option value="spouse_partner">Spouse / partner</option><option value="friend">Friend</option><option value="caregiver">Caregiver</option><option value="guardian">Guardian (contact only)</option><option value="clinician">Clinician</option><option value="other">Other</option></select>
+<label for="contact-email">Contact email</label><input id="contact-email" type="email" maxlength="254">
+<label for="contact-phone">Contact phone</label><input id="contact-phone" type="tel" maxlength="40">
+<label for="contact-notes">Contact notes</label><textarea id="contact-notes" maxlength="500" rows="2"></textarea>
+<label><input id="contact-next-of-kin" type="checkbox"> Next of kin</label><label><input id="contact-emergency" type="checkbox"> Emergency contact</label>
+<label for="contact-account">Comfort account ID (optional)</label><input id="contact-account" maxlength="36"><button id="check-contact-account" type="button" class="secondary">Check linked account</button><p id="contact-account-preview" role="status"></p><p class="quiet">A phone/email contact can be saved without an account. Linking requires the exact Comfort ID; names and emails never link accounts automatically.</p>
+<button type="submit">Save contact</button><button id="new-contact" type="button" class="secondary">Start a new contact</button></form>
+<label><input id="show-archived-contacts" type="checkbox"> Show removed contacts</label><div id="care-circle-list" aria-live="polite"></div></section></div>
+<noscript><p>Saving and editing currently require JavaScript.</p></noscript></div>
+<script src="{% static 'profile.js' %}" defer></script>
+{% endblock %}

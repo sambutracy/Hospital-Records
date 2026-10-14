@@ -8,6 +8,7 @@ from django.db import connection, connections
 from django.test import TransactionTestCase
 
 from identity import services
+from identity.authorization import SELF_ACTIONS
 from identity.models import (
     AccessCapability, AuditEvent, CapabilityRule, OIDCIdentity,
     PatientProfile, PatientWorkspace, Person, User, WorkspaceMembership,
@@ -57,5 +58,5 @@ class ConcurrentOnboardingTests(TransactionTestCase):
                       WorkspaceMembership):
             with self.subTest(model=model.__name__):
                 self.assertEqual(model.objects.count(), 1)
-        self.assertEqual(AccessCapability.objects.count(), 4)
+        self.assertEqual(AccessCapability.objects.count(), len(SELF_ACTIONS))
         self.assertEqual(AuditEvent.objects.filter(action='onboarding.new_subject').count(), 1)

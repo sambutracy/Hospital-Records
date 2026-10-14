@@ -47,7 +47,10 @@ build/
 /docs/backend-status.md
 /docs/model-access-alternatives.md
 /docs/progress-review.md
+/docs/accessibility-and-assisted-operation.md
 
 # Generated local demo secrets and built static files
 .runtime/
 /src/staticfiles/
+/src/static/comfort/
+frontend/storybook-static/

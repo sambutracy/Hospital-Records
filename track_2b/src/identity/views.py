@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 from joserfc.errors import JoseError
 from requests.exceptions import RequestException
 from .authorization import authorized_workspaces
-from .models import AuditEvent
+from .models import AuditEvent,PatientPersonalDetails
 from .oidc import keycloak_client
 from .services import resolve_verified_identity
 
@@ -109,7 +109,7 @@ def logged_out(request):
 def workspace_list(request):
     workspaces = list(authorized_workspaces(request.user))
     if len(workspaces) == 1:
-        return redirect('workspace_home', workspace_id=workspaces[0].id)
+        return redirect(f'/app/workspaces/{workspaces[0].id}/home')
     return render(request, 'workspace_list.html', {'workspaces': workspaces})
 
 
@@ -127,7 +127,9 @@ def workspace_home(request, workspace_id):
         actor_user=request.user, workspace=workspace, action='workspace.open', decision='allow',
         target_type='patient_workspace', target_id=workspace.id,
     )
-    return render(request, 'workspace_home.html', {'workspace': workspace})
+    profile=PatientPersonalDetails.objects.filter(workspace=workspace).first()
+    display_name=(profile.preferred_name or profile.full_name) if profile else workspace.subject_patient.person.display_name
+    return render(request, 'workspace_home.html', {'workspace': workspace,'patient_display_name':display_name})
 
 
 @require_GET

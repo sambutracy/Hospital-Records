@@ -12,3 +12,6 @@ def configure_runtime_permissions(connection):
         cursor.execute('REVOKE DELETE, TRUNCATE ON source_records, ingestion_jobs, generation_runs, metadata_heads, packet_revisions FROM continuity_app')
         cursor.execute('REVOKE UPDATE, DELETE, TRUNCATE ON assistant_sources FROM continuity_app')
         cursor.execute('REVOKE DELETE, TRUNCATE ON assistant_tasks FROM continuity_app')
+        cursor.execute('REVOKE UPDATE, DELETE, TRUNCATE ON care_episodes, episode_sources FROM continuity_app')
+        cursor.execute('REVOKE DELETE, TRUNCATE ON share_grants, provider_contribution_authorities, clinical_contributions FROM continuity_app')
+        cursor.execute('REVOKE DELETE, TRUNCATE ON patient_personal_details, care_circle_entries, medication_entries FROM continuity_app')

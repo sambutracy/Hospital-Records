@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Received access · Comfort{% endblock %}
+{% block content %}
+<div id="comfort-received">
+<h1>Received access</h1><p class="lead">Review the records a patient chose to share, or submit a note when separately authorized.</p>
+<section class="panel" aria-labelledby="account-title"><h2 id="account-title">Your Comfort account</h2><p id="comfort-account-id">Loading your account ID…</p><p class="quiet">Give this ID to the patient through a channel you trust. It identifies your account; it does not establish professional credentials.</p></section>
+<form hidden>{% csrf_token %}</form><p id="continuity-message" role="status"></p>
+<button id="refresh-received" type="button" class="secondary">Refresh access</button>
+<div id="received-grants" aria-live="polite"></div>
+<noscript><p>These controls currently require JavaScript.</p></noscript>
+</div><script src="{% static 'continuity.js' %}" defer></script>
+{% endblock %}

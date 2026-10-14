@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
+from django.utils import timezone
 from identity.models import UUIDModel, PatientWorkspace, WorkspaceMembership
 from .facilities import MAPS_URL_PATTERN
 
@@ -252,3 +253,110 @@ class AssistantSource(WorkspaceModel):
             models.UniqueConstraint(fields=['task','source_label'], name='assistant_label_once'),
             models.CheckConstraint(condition=Q(snapshot_sha256__regex=r'^[0-9a-f]{64}$'), name='assistant_snapshot_shape'),
         ]
+
+
+class CareEpisode(WorkspaceModel):
+    """Patient-created grouping; no inferred diagnosis or appointment lifecycle."""
+    title = models.CharField(max_length=180)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'care_episodes'
+
+
+class EpisodeSource(WorkspaceModel):
+    episode = models.ForeignKey(CareEpisode, on_delete=models.PROTECT, related_name='sources')
+    source_version = models.ForeignKey(SourceVersion, on_delete=models.PROTECT)
+    linked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'episode_sources'
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.UniqueConstraint(fields=['episode', 'source_version'], name='episode_source_once')]
+
+
+class PatientGrant(WorkspaceModel):
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    authorizing_membership = models.ForeignKey(WorkspaceMembership, on_delete=models.PROTECT)
+    purpose = models.CharField(max_length=180)
+    authority_basis = models.CharField(max_length=40, default='patient_explicit_approval')
+    starts_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True)
+    class Meta(WorkspaceModel.Meta):
+        abstract = True
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.CheckConstraint(condition=Q(expires_at__gt=F('starts_at')), name='%(class)s_interval'),
+            models.CheckConstraint(condition=Q(authority_basis='patient_explicit_approval'), name='%(class)s_basis')]
+
+
+class ShareGrant(PatientGrant):
+    """Immutable approved packet is the exact read scope, never a write parent."""
+    packet_revision = models.ForeignKey(PacketRevision, on_delete=models.PROTECT)
+    class Meta(PatientGrant.Meta):
+        abstract = False
+        db_table = 'share_grants'
+        indexes = [models.Index(fields=['recipient', 'expires_at'], name='share_recipient_expiry')]
+
+
+class ProviderContributionAuthority(PatientGrant):
+    episode = models.ForeignKey(CareEpisode, on_delete=models.PROTECT)
+    class Meta(PatientGrant.Meta):
+        abstract = False
+        db_table = 'provider_contribution_authorities'
+        indexes = [models.Index(fields=['recipient', 'expires_at'], name='contribution_recipient_expiry')]
+
+
+class ClinicalContribution(WorkspaceModel):
+    """Private immutable submission bytes; not an accepted source until reviewed."""
+    authority = models.ForeignKey(ProviderContributionAuthority, on_delete=models.PROTECT, related_name='submissions')
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    private_object_key = models.CharField(max_length=128, unique=True)
+    sha256 = models.CharField(max_length=64)
+    byte_size = models.PositiveIntegerField()
+    media_type = models.CharField(max_length=32)
+    content_kind = models.CharField(max_length=16)
+    original_filename = models.CharField(max_length=180)
+    state = models.CharField(max_length=16, default='pending')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name='+')
+    reviewed_at = models.DateTimeField(null=True)
+    accepted_source = models.OneToOneField(SourceVersion, null=True, on_delete=models.PROTECT)
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'clinical_contributions'
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.UniqueConstraint(fields=['authority', 'sha256'], name='contribution_duplicate'),
+            models.CheckConstraint(condition=Q(sha256__regex=r'^[0-9a-f]{64}$'), name='contribution_checksum'),
+            models.CheckConstraint(condition=Q(byte_size__gt=0, byte_size__lte=10485760), name='contribution_size'),
+            models.CheckConstraint(condition=Q(media_type__in=['application/pdf', 'image/jpeg', 'image/png', 'application/dicom']), name='contribution_media'),
+            models.CheckConstraint(condition=Q(content_kind__in=['document', 'medical_image']) & (~Q(media_type='application/dicom') | Q(content_kind='medical_image')), name='contribution_kind'),
+            models.CheckConstraint(condition=(
+                Q(state='pending', reviewed_by__isnull=True, reviewed_at__isnull=True, accepted_source__isnull=True)
+                | Q(state='accepted', reviewed_by__isnull=False, reviewed_at__isnull=False, accepted_source__isnull=False)
+                | Q(state='rejected', reviewed_by__isnull=False, reviewed_at__isnull=False, accepted_source__isnull=True)
+            ), name='contribution_review_state')]
+
+
+class MedicationEntry(WorkspaceModel):
+    """Patient-reported medication at a visit; no inferred prescription or dose."""
+    medicine_name = models.CharField(max_length=160)
+    dose = models.CharField(max_length=120, blank=True)
+    frequency = models.CharField(max_length=120, blank=True)
+    route = models.CharField(max_length=64, blank=True)
+    instructions = models.CharField(max_length=500, blank=True)
+    use_status = models.CharField(max_length=24, default='unknown')
+    date_precision = models.CharField(max_length=8, default='unknown')
+    value_year = models.SmallIntegerField(null=True)
+    value_month = models.SmallIntegerField(null=True)
+    value_day = models.SmallIntegerField(null=True)
+    episode = models.ForeignKey(CareEpisode, null=True, on_delete=models.PROTECT)
+    source_version = models.ForeignKey(SourceVersion, null=True, on_delete=models.PROTECT)
+    status = models.CharField(max_length=16, default='active')
+    revision = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'medication_entries'
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.CheckConstraint(condition=Q(use_status__in=['reported_taken','reported_prescribed','not_taken','unknown']), name='medication_use_status'),
+            models.CheckConstraint(condition=date_shape(), name='medication_date_shape'),
+            models.CheckConstraint(condition=Q(status__in=['active','archived']), name='medication_status'),
+            models.CheckConstraint(condition=Q(revision__gt=0) & ~Q(medicine_name=''), name='medication_revision_name')]

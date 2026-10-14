@@ -14,6 +14,7 @@
   let recordsPoller = null;
   let recordsOffset = 0;
   let keywordQuery = '';
+  let recordsRequest = 0;
   const stateText = {queued:'Queued for processing', processing:'Processing', waiting_model:'Waiting for model access',
     needs_ocr:'Text extraction from this scan is not available yet', manual_review:'Ready for your review',
     review_ready:'Metadata suggestions are ready', completed:'Suggestions ready', failed:'Processing did not complete'};
@@ -72,12 +73,16 @@
     return parts.join('-');
   }
   function selectionCount() {
+    document.dispatchEvent(new CustomEvent('comfort:selection-changed',{detail:Array.from(selected)}));
     byId('selection-count').textContent = selected.size ? `${selected.size} source version${selected.size === 1 ? '' : 's'} selected.` : 'No records selected.';
   }
   async function loadRecords(append = false) {
+    const request = ++recordsRequest;
     if (recordsPoller) { clearTimeout(recordsPoller); recordsPoller = null; }
     if (!append) { recordsOffset = 0; byId('record-list').replaceChildren(); }
-    const data = await api(`records/?q=${encodeURIComponent(keywordQuery)}&offset=${recordsOffset}`);
+    const data = await api(`records/?q=${encodeURIComponent(keywordQuery)}&offset=${recordsOffset}&order=${byId('record-order').value}&episode=${encodeURIComponent(byId('record-episode').value)}`);
+    if (request !== recordsRequest) return;
+    byId('record-order-description').textContent = data.order;
     if (!data.records.length && !append) byId('record-list').append(make('p', keywordQuery ? 'No keyword matches. Try another term or Ask Apertus.' : 'No health records here yet. Add an original above.'));
     for (const record of data.records) {
       const version = record.current_version;
@@ -203,6 +208,7 @@
     }
     if (task.sources.some(source => !source.current_version || source.metadata_changed_since_request)) box.append(make('p','Some records changed after this request. Suggestions refer to the saved versions and details.','quiet'));
     if (task.kind === 'search') box.append(make('p',`${task.coverage.included_records} of ${task.coverage.accessible_records_at_request} records included; ${task.coverage.text_available_sources} had readable report text when requested. ${task.coverage.truncated_sources} source contexts were shortened; images were not analyzed.`,'quiet'));
+    if (task.kind === 'search' && task.coverage.scope_note) box.append(make('p',task.coverage.scope_note,'quiet'));
     const result = task.result;
     if (result) {
       if (result.limitation_code === 'no_readable_report_text') box.append(make('p','An overview needs a written report. This packet contains only image records without readable report text. Add the written imaging report, then create a new packet. No model generation or image interpretation was performed.'));
@@ -269,6 +275,8 @@
   byId('reset-search').addEventListener('click',() => run(async () => { keywordQuery = ''; byId('record-query').value = ''; await loadRecords(); }));
   byId('refresh-records').addEventListener('click',() => run(loadRecords));
   byId('more-records').addEventListener('click',() => run(() => loadRecords(true)));
+  byId('record-order').addEventListener('change',() => run(loadRecords));
+  byId('record-episode').addEventListener('change',() => run(loadRecords));
   byId('review-precision').addEventListener('change',adjustDate);
   byId('review-facility').addEventListener('input',() => {
     if (byId('review-facility-maps').value) say('Facility name changed. Choose its pin again before confirming.');
@@ -324,10 +332,15 @@
     if (!selected.size || selected.size > 30) throw new Error('Select between one and 30 source versions.');
     await post('packets/',{purpose:byId('packet-purpose').value.trim(),source_version_ids:Array.from(selected)});
     selected.clear(); await loadRecords(); await loadPackets(); say('Private packet created with exactly the selected originals.');
+    document.dispatchEvent(new CustomEvent('comfort:packets-changed'));
   },event.submitter); });
   run(async () => {
     await loadRecords(); await loadPackets();
     const status = await api('assistant/status/');
+    if (status.facility_search_enabled === false) {
+      byId('facility-search').disabled = true; byId('facility-query').disabled = true;
+      byId('facility-availability').hidden = false;
+    }
     if (status.configured) byId('assistant-availability').textContent = status.text_only ?
       'Local Apertus text inference is configured. Search uses written text and record details; image pixels are not analyzed. Check each suggestion against its sources.' :
       'Apertus inference is configured. Check each suggestion against its sources. Image understanding is not part of this text assistant.';

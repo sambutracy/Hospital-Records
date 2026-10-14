@@ -1,0 +1,77 @@
+# Default on-premise inference. Network access is needed for setup, not model runtime.
+services:
+  model-prepare:
+    image: python:3.12-slim
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - ${MODEL_CACHE_DIR:-./.runtime/local-model}:/workspace/.runtime/local-model
+    command: ["python", "src/tools/prepare_container_model.py"]
+    profiles: ["setup"]
+
+  inference:
+    image: ghcr.io/ggml-org/llama.cpp:server-b11429@sha256:a7c742ec2070a17d715c02d4329c049a984c81c3234f9ab14bdb14e46b077317
+    platform: linux/amd64
+    user: "10001:10001"
+    entrypoint: ["/bin/sh", "/runtime/run_container_model.sh"]
+    volumes:
+      - ${MODEL_CACHE_DIR:-./.runtime/local-model}:/models:ro
+      - ./src/tools/run_container_model.sh:/runtime/run_container_model.sh:ro
+    networks: [model_runtime]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 8g
+    cpus: 6
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--header", "@/models/auth-header.txt", "http://127.0.0.1:8080/v1/models"]
+      interval: 10s
+      timeout: 5s
+      start_period: 120s
+      retries: 30
+    restart: unless-stopped
+
+  app:
+    environment:
+      ASSISTANT_SEARCH_SOURCE_LIMIT: ${ASSISTANT_SEARCH_SOURCE_LIMIT:-10}
+      LLM_NAME: Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF
+      LLM_BASE_URL: http://inference:8080/v1
+      LLM_API_KEY: ""
+      LLM_API_KEY_FILE: /run/secrets/apertus_key
+      FACILITY_SEARCH_URL: ${ON_PREMISE_FACILITY_SEARCH_URL:-}
+    volumes:
+      - ${MODEL_CACHE_DIR:-./.runtime/local-model}/server.key:/run/secrets/apertus_key:ro
+    networks: [default, model_runtime]
+    depends_on:
+      inference:
+        condition: service_healthy
+
+  worker:
+    environment:
+      ASSISTANT_SEARCH_SOURCE_LIMIT: ${ASSISTANT_SEARCH_SOURCE_LIMIT:-10}
+      LLM_NAME: Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF
+      LLM_BASE_URL: http://inference:8080/v1
+      LLM_API_KEY: ""
+      LLM_API_KEY_FILE: /run/secrets/apertus_key
+    volumes:
+      - ${MODEL_CACHE_DIR:-./.runtime/local-model}/server.key:/run/secrets/apertus_key:ro
+    networks: [default, model_runtime]
+    depends_on:
+      inference:
+        condition: service_healthy
+
+  trial:
+    environment:
+      LLM_NAME: Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF
+      LLM_BASE_URL: http://inference:8080/v1
+      LLM_API_KEY: ""
+      LLM_API_KEY_FILE: /run/secrets/apertus_key
+    volumes:
+      - ${MODEL_CACHE_DIR:-./.runtime/local-model}/server.key:/run/secrets/apertus_key:ro
+    networks: [model_runtime]
+
+networks:
+  model_runtime:
+    internal: true
