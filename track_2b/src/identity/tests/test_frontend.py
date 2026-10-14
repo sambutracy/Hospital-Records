@@ -26,7 +26,7 @@ class FrontendBootstrapTests(TestCase):
 
     def test_bootstrap_is_minimal_live_and_cross_patient_isolated(self):
         self.sign_in()
-        PatientPersonalDetails.objects.create(workspace=self.workspace,preferred_name='Al',full_name='Private Name',contact_email='private@example.invalid',id_number='PRIVATE-ID')
+        PatientPersonalDetails.objects.create(workspace=self.workspace,preferred_name='Al',full_name='Private Name',email='private@example.invalid',identifier_type='national_id',identifier_number='PRIVATE-ID',updated_by=self.alice)
         response=self.client.get('/api/session/')
         data=response.json()
         self.assertEqual(data['contexts'][0]['patient_display_name'],'Al')
@@ -43,7 +43,8 @@ class FrontendBootstrapTests(TestCase):
     def test_relationship_or_staff_flag_does_not_create_a_context(self):
         self.sign_in()
         foreign=PatientWorkspace.objects.get(subject_patient__person=self.bob.person)
-        WorkspaceMembership.objects.create(workspace=foreign,user=self.alice,relationship_type='guardian',authority_basis='relationship_only')
+        WorkspaceMembership.objects.create(workspace=foreign,user=self.alice,relationship_type='caregiver',authority_basis='relationship_only')
+        WorkspaceMembership.objects.create(workspace=foreign,user=self.alice,relationship_type='guardian',authority_basis='verified_guardianship',authority_reference='fictional test reference')
         self.assertEqual(len(self.client.get('/api/session/').json()['contexts']),1)
 
     def test_session_csrf_can_authorize_post_but_missing_token_cannot(self):

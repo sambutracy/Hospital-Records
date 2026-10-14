@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Link,
   NavLink,
@@ -65,6 +66,8 @@ const navigation = [
   ["account", "Account & privacy", ShieldCheck],
 ] as const;
 function Shell() {
+  const client = useQueryClient();
+  const [signingOut, setSigningOut] = useState(false);
   const patient = usePatient();
   const session = useSession();
   const navigate = useNavigate();
@@ -110,15 +113,19 @@ function Shell() {
               ))}
             </select>
             <span className="context-capacity">
-              {patient.capacity} · your authorized information
+              {patient.capacity} · {patient.patient_display_name}
             </span>
           </div>
           <form
             method="post"
             action="/auth/logout/"
-            onSubmit={() =>
-              window.dispatchEvent(new Event("comfort:session-ended"))
-            }
+            onSubmit={() => {
+              // Keep this native POST form connected until navigation starts.
+              // Removing the whole session shell here can cancel form submission.
+              void client.cancelQueries();
+              client.clear();
+              setSigningOut(true);
+            }}
           >
             <input
               type="hidden"
@@ -139,10 +146,14 @@ function Shell() {
           ))}
           <NavLink to={`${root}/account`}>More</NavLink>
         </nav>
-        <main id="main-content" className="main-content">
-          <Suspense fallback={<Loading />}>
-            <Outlet />
-          </Suspense>
+        <main id="main-content" className="main-content" tabIndex={-1}>
+          {signingOut ? (
+            <Loading>Signing out securely…</Loading>
+          ) : (
+            <Suspense fallback={<Loading />}>
+              <Outlet />
+            </Suspense>
+          )}
         </main>
         <footer className="app-footer">
           Comfort helps organize your information. It does not provide a
@@ -208,6 +219,7 @@ function Account() {
           Comfort journeys are built.
         </p>
         <div className="stack">
+          <Link to="../insights">Insights · in development</Link>
           <a href={`/workspaces/${patient.id}/profile/`}>
             Personal profile and care circle{" "}
             <ArrowUpRight size={16} aria-hidden="true" />

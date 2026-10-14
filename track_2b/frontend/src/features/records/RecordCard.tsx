@@ -41,10 +41,12 @@ export function RecordCard({
   record,
   selected,
   onSelect,
+  selectionDisabled = false,
 }: {
   record: RecordItem;
   selected?: boolean;
   onSelect?: (checked: boolean) => void;
+  selectionDisabled?: boolean;
 }) {
   return (
     <article className="record-card">
@@ -85,6 +87,7 @@ export function RecordCard({
           <input
             type="checkbox"
             checked={selected}
+            disabled={selectionDisabled}
             onChange={(event) => onSelect(event.target.checked)}
           />
           Select for a visit

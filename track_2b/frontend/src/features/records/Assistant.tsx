@@ -42,10 +42,21 @@ export function TaskCard({ task }: { task: AssistantTask }) {
           failed:
             task.error_code === "no_readable_report_text"
               ? "Add a written report with readable text before requesting an overview. Your originals are unchanged."
-              : "Apertus could not complete this request. Your originals are unchanged.",
+              : task.error_code === "cancelled_by_user"
+                ? "This request was cancelled."
+                : "Apertus could not complete this request. Your originals are unchanged.",
           cancelled: "This request was cancelled.",
         }[task.state] ?? "Request saved."}
       </Notice>
+      {task.sources.some(
+        (source) =>
+          !source.current_version || source.metadata_changed_since_request,
+      ) && (
+        <Notice tone="warning">
+          Some originals or document details changed after this request. This
+          draft still refers to its saved source versions.
+        </Notice>
+      )}
       <p>
         {typeof task.coverage.included_records === "number"
           ? `${task.coverage.included_records} source records included. `
@@ -182,7 +193,9 @@ export default function Assistant({
       <div className="task-list">
         {tasks.data?.tasks
           .filter((task) =>
-            packetId ? task.kind === "packet_overview" && task.packet_id === packetId : task.kind === "search",
+            packetId
+              ? task.kind === "packet_overview" && task.packet_id === packetId
+              : task.kind === "search",
           )
           .map((task) => (
             <TaskCard key={task.id} task={task} />

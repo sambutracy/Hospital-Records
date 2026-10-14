@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../../app/App";
@@ -16,6 +16,44 @@ const session = {
   supported_context_kinds: ["patient"],
 };
 afterEach(() => vi.restoreAllMocks());
+it("clears the protected view without disconnecting the native logout form", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(
+    async (path) =>
+      new Response(
+        JSON.stringify(
+          String(path) === "/api/session/"
+            ? session
+            : {
+                records: [record],
+                offset: 0,
+                limit: 50,
+                total: 1,
+                has_more: false,
+                order: "upload",
+              },
+        ),
+      ),
+  );
+  render(
+    <MemoryRouter initialEntries={[`/workspaces/${workspaceId}/home`]}>
+      <SessionProvider>
+        <App />
+      </SessionProvider>
+    </MemoryRouter>,
+  );
+  await screen.findByRole("heading", { name: "Hello, Fictional patient." });
+  const form = screen
+    .getByRole("button", { name: "Sign out" })
+    .closest("form")!;
+  fireEvent.submit(form);
+  await screen.findByText("Signing out securely…");
+  expect(form.isConnected).toBe(true);
+  expect(form.getAttribute("action")).toBe("/auth/logout/");
+  expect(new FormData(form).get("csrfmiddlewaretoken")).toBe("test-csrf");
+  expect(
+    screen.queryByText("Hello, Fictional patient."),
+  ).not.toBeInTheDocument();
+});
 it("rejects a different context route without requesting its records", async () => {
   const fetch = vi
     .spyOn(globalThis, "fetch")

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FilePlus2 } from "lucide-react";
+import { TextField } from "../../design-system/fields";
 import { usePatient } from "../../services/auth/session";
 import { post } from "../../services/api/client";
 import {
@@ -105,22 +106,18 @@ export default function Records() {
         }}
       >
         <div className="toolbar">
-          <div className="field">
-            <label htmlFor="search">Find a record</label>
-            <input
-              id="search"
-              value={draft.q}
-              maxLength={160}
-              onChange={(event) =>
-                setDraft({ ...draft, q: event.target.value })
-              }
-              placeholder="Filename, facility or words in readable text"
-            />
-            <small>
-              Search terms stay out of page URLs. This keyword search works
-              without AI.
-            </small>
-          </div>
+          <TextField
+            id="search"
+            label="Find a record"
+            help="Search terms stay out of page URLs. This keyword search works without AI."
+            inputProps={{
+              value: draft.q,
+              maxLength: 160,
+              onChange: (event) =>
+                setDraft({ ...draft, q: event.target.value }),
+              placeholder: "Filename, facility or words in readable text",
+            }}
+          />
           <Button type="submit">Search records</Button>
         </div>
         <details>
@@ -221,6 +218,7 @@ export default function Records() {
           <div>
             <strong>{selected.length} exact versions selected</strong>
             <p>Selection stays private. Later uploads are not included.</p>
+            <p>Select up to 30 exact original versions for one visit.</p>
             <ul>
               {selected.map((item) => (
                 <li key={item.id}>
@@ -242,7 +240,7 @@ export default function Records() {
               <label htmlFor="purpose">Purpose of your visit</label>
               <input
                 id="purpose"
-                maxLength={300}
+                maxLength={180}
                 value={purpose}
                 onChange={(event) => setPurpose(event.target.value)}
               />
@@ -296,6 +294,12 @@ export default function Records() {
                 selected={selected.some(
                   (item) => item.id === record.current_version.id,
                 )}
+                selectionDisabled={
+                  selected.length >= 30 &&
+                  !selected.some(
+                    (item) => item.id === record.current_version.id,
+                  )
+                }
                 onSelect={
                   can("prepare_packet")
                     ? (checked) =>

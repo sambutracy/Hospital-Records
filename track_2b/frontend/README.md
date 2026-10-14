@@ -6,7 +6,7 @@ This React + strict TypeScript + Vite application implements the foundation and 
 
 From the repository root, `make run` builds the frontend in a Node Docker stage, collects its assets in Django, and serves everything at the same origin. Open `http://localhost:8000/app/`. The existing Keycloak authorization-code flow, callback and POST logout remain unchanged. Successful sign-in selects the authorized application context. No browser-held OIDC tokens are introduced.
 
-For frontend development, use Node 22.12+ and `npm ci`, then `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`. `npm run storybook` opens the component workbench; `npm run build-storybook` builds it. Vite builds use `/static/comfort/`; live integrated testing uses the Docker app, not invented API fixtures. Test-only mocked responses are confined to `.test.tsx`.
+For frontend development, use Node 22.12+ and `npm ci`, then `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`. `npm run storybook` opens the component workbench; `npm run build-storybook` builds it. Vite builds use `/static/comfort/`; live integrated testing uses the Docker app, not invented API fixtures. Test-only mocked responses are confined to `.test.tsx`. The explicit AJV8 development dependency resolves a reproduced npm peer-hoisting conflict between Storybook and ESLint's AJV6 dependency; it is not a patient-data validator or runtime API dependency.
 
 ## Contracts and privacy
 
@@ -29,3 +29,14 @@ The foundation uses the proposed Quiet Editorial Care palette, Source Sans3 serv
 Unit tests cover partial dates, file limits, successful-file retention on retry, revision conflicts, original/revision binding, CSRF/contract failures, context isolation, late bootstrap responses and expiry hiding. Axe component checks supplement manual keyboard, responsive and focus review. Automated checks alone do not establish WCAG2.2AA compliance. NVDA/VoiceOver and participant usability research remain required before claiming accessibility compliance.
 
 Future features follow the specification's dependency sequence: care relationships and verified contexts; scoped sharing/contributions; private journal/event domains; then longitudinal insights. Do not broaden existing authority or invent appointment/clinical data to fill future screens.
+
+## Verified first-pass results — 14 October 2026
+
+- Strict TypeScript, ESLint, production build, Storybook build and13frontend tests passed. All168identity/records PostgreSQL tests passed, including the existing authority, immutable-source and clinical-data boundaries. No schema migration is added by this frontend slice.
+- The root `make run` path successfully installs with `npm ci` in Linux and starts healthy app, worker, database, Keycloak and inference services while retaining the existing volumes.
+- Real browser checks used the pre-authorized fictional patient account: Keycloak sign-in; two authored PDF uploads; exact-original download with matching SHA256; document review and retained history; keyword search; two exact-version selections; private packet persistence; a real saved Apertus request; expiration hiding; reauthentication; keyboard Escape cancellation and trigger focus restoration; provider logout. Existing patient uploads were not edited.
+- The live320px visit page reflowed without horizontal scrolling; its axe WCAG-tag check reported zero violations/incomplete checks. Component axe and semantic-token contrast checks also passed. NVDA/VoiceOver,200% text resizing, high-contrast assistive-technology review and participant research remain unverified.
+
+The screenshots and local test receipts remain in ignored `.runtime/`. A saved/queued model request is not evidence of a clinically correct generated summary. No final model benchmark or WCAG conformance claim is made here.
+
+The locally served Source Sans3 font license is retained in `public/SOURCE_SANS_3_LICENSE.txt`. Implementation references: [Vite backend integration](https://vite.dev/guide/backend-integration), [TanStack Query cancellation](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation), [React Aria controls](https://react-aria.adobe.com/Button).

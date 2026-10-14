@@ -1,6 +1,7 @@
 # Hack Apertus — project template
 
 Template repository for [Hack Apertus](https://hackapertus.ch/) submissions.
+Comfort's integrated React interface is available at `http://localhost:8000/app/` after `make run`. See [frontend contracts, workflow and verification](track_2b/frontend/README.md). Django remains the authorization authority, with existing verification interfaces preserved.
 Every project keeps almost the same layout, so organizers and judges find the
 same things in the same place.
 

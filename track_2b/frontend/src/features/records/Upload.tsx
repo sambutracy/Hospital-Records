@@ -167,7 +167,10 @@ export default function Upload({ onSaved }: { onSaved: () => void }) {
           multiple
           disabled={busy || unsaved}
           accept=".pdf,.jpg,.jpeg,.png,.dcm,.dicom"
-          onChange={(event) => select(event.target.files)}
+          onChange={(event) => {
+            select(event.target.files);
+            event.target.value = "";
+          }}
         />
       </label>
       {warning && (

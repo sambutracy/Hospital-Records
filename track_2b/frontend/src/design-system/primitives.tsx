@@ -73,7 +73,9 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus({preventScroll:true}); }, [title]);
+  useEffect(() => {
+    heading.current?.focus({ preventScroll: true });
+  }, [title]);
   return (
     <header className="page-header">
       <div>
