@@ -14,6 +14,7 @@ For frontend development, use Node 22.12+ and `npm ci`, then `npm run typecheck`
 - `/app/` and nested routes return a data-free shell. API calls are schema-validated. Opaque IDs may appear in routes; search terms and medical details are held in memory and sent in JSON bodies. No analytics, external fonts, persistent browser caches or stored patient data are added.
 - New `POST /api/workspaces/{id}/records/search/` reuses live record-read authorization and current-version projection. Input: `q` (max160), offset0–10000, order upload/document_date, document_type, reviewed yes/no, uploaded_from/uploaded_until (inclusive UTC calendar dates), document_year (known year, including partial dates). Output retains the record contract and adds total/has_more. Pages contain at most50. Unknown filters and invalid dates fail400. Unknown/unauthorized workspace IDs share404. CSRF is required. Existing GET records and original upload contracts remain supported.
 - No data-model migration was needed. Originals, metadata assertions, source-version scope, revision checks, audit and patient/actor separation remain authoritative on the server. Changing displayed UI capabilities does not grant authority.
+- Assistant task responses add `packet_id` (nullable). Visit pages display only drafts belonging to that exact packet; an earlier draft for another visit cannot be mistaken for the selected visit's overview.
 - Session expiry removes protected UI. Bootstrap refreshes on visibility and every30seconds, and rejects stale responses. Context changes/permission changes unmount the patient scope, abort reads and clear TanStack Query's in-memory cache. Direct URLs cannot select an unauthorized context. The backend still rechecks every request and download; this is not a claim of immediate provider back-channel logout.
 
 ## Complete first journey
@@ -32,11 +33,26 @@ Future features follow the specification's dependency sequence: care relationshi
 
 ## Verified first-pass results — 14 October 2026
 
-- Strict TypeScript, ESLint, production build, Storybook build and13frontend tests passed. All168identity/records PostgreSQL tests passed, including the existing authority, immutable-source and clinical-data boundaries. No schema migration is added by this frontend slice.
+- Strict TypeScript, ESLint, production build, Storybook build and14frontend tests passed. All168identity/records PostgreSQL tests passed, including the existing authority, immutable-source and clinical-data boundaries. No schema migration is added by this frontend slice.
 - The root `make run` path successfully installs with `npm ci` in Linux and starts healthy app, worker, database, Keycloak and inference services while retaining the existing volumes.
 - Real browser checks used the pre-authorized fictional patient account: Keycloak sign-in; two authored PDF uploads; exact-original download with matching SHA256; document review and retained history; keyword search; two exact-version selections; private packet persistence; a real saved Apertus request; expiration hiding; reauthentication; keyboard Escape cancellation and trigger focus restoration; provider logout. Existing patient uploads were not edited.
 - The live320px visit page reflowed without horizontal scrolling; its axe WCAG-tag check reported zero violations/incomplete checks. Component axe and semantic-token contrast checks also passed. NVDA/VoiceOver,200% text resizing, high-contrast assistive-technology review and participant research remain unverified.
 
 The screenshots and local test receipts remain in ignored `.runtime/`. A saved/queued model request is not evidence of a clinically correct generated summary. No final model benchmark or WCAG conformance claim is made here.
+The initial live overview was interrupted by a deployment worker restart (`worker_interrupted`). After deployment, an explicit second request completed with actual Apertus in25.51seconds over the two fictional source versions; its source-linked output remains a draft, not clinical validation. Context teardown also aborts in-flight workspace JSON mutations and reads before their completion can navigate to an old patient context. Abort does not undo server work already committed.
 
 The locally served Source Sans3 font license is retained in `public/SOURCE_SANS_3_LICENSE.txt`. Implementation references: [Vite backend integration](https://vite.dev/guide/backend-integration), [TanStack Query cancellation](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation), [React Aria controls](https://react-aria.adobe.com/Button).
+# My Care relationships
+
+The second slice adds `/care/concerns`, `/care/team` and `/care/visits` under each
+authorized workspace route. Patients can save uncertain health concerns, record
+doctors, link current/historical participation with partial dates, correct entries,
+inspect revision history and archive/restore entries. Existing family/support
+contacts are displayed without duplicating their data or creating authority.
+
+The backend extension and verified-identity boundary are documented in
+[`CARE.md`](../src/records/CARE.md). A relationship never creates record access.
+Verified professional affiliation and delegated acting contexts remain pending
+trusted verification workflows. Forms warn on ordinary links/reload/close.
+Back/forward navigation preserves drafts in the current context's memory cache
+for recovery on returning to My Care; no draft enters persistent browser storage.

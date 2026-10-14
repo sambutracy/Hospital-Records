@@ -32,7 +32,7 @@ export function TaskCard({ task }: { task: AssistantTask }) {
             ? "Visit overview draft"
             : "Term explanation"}
       </h3>
-      <Notice tone={task.state === "failed" ? "warning" : "info"}>
+      <Notice tone={task.state === "failed" ? "warning" : "info"} live>
         {{
           queued: "Your request is saved and queued.",
           processing:
@@ -137,7 +137,7 @@ export default function Assistant({
       api(base + "assistant/tasks/", tasksSchema, { signal }),
     refetchInterval: (query) =>
       query.state.data?.tasks.some((task) => pending.has(task.state))
-        ? 15000
+        ? Math.min(30000, 8000 * 2 ** Math.min(2, query.state.dataUpdateCount))
         : false,
     refetchIntervalInBackground: false,
   });

@@ -6,6 +6,26 @@ type FieldProps = {
   help?: ReactNode;
   error?: string;
 };
+export function TextAreaField({
+  id,
+  label,
+  error,
+  inputProps = {},
+}: FieldProps & { inputProps?: ComponentPropsWithRef<"textarea"> }) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <textarea
+        {...inputProps}
+        id={id}
+        rows={3}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-error` : undefined}
+      />
+      <FieldError id={`${id}-error`}>{error}</FieldError>
+    </div>
+  );
+}
 export function TextField({
   id,
   label,

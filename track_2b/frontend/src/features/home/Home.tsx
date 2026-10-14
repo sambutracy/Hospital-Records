@@ -79,7 +79,7 @@ export default function Home() {
           Saving a record does not share it. Reviewing document details does not
           make them clinically verified.
         </p>
-        <Link to="../care">
+        <Link to="../care/visits">
           Prepare for a visit <ArrowRight size={16} aria-hidden="true" />
         </Link>
       </section>

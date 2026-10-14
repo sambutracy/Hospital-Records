@@ -1,5 +1,10 @@
 import { z } from "zod";
 let csrf = "";
+const privateRequests = new Map<string, Set<AbortController>>();
+export function cancelPrivateRequests(workspaceId: string) {
+  for (const controller of privateRequests.get(workspaceId) ?? [])
+    controller.abort();
+}
 export function setCsrf(token: string) {
   csrf = token;
 }
@@ -39,35 +44,63 @@ export async function api<T>(
   if (!path.startsWith("/api/") || path.startsWith("//"))
     throw new Error("Only same-origin API paths are allowed");
   let response: Response;
-  try {
-    response = await fetch(path, {
-      ...options,
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: {
-        ...options.headers,
-        ...(options.method && options.method !== "GET"
-          ? { "X-CSRFToken": csrf }
-          : {}),
-      },
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw error;
-    throw new ApiError(0, "network");
+  const workspace = path.match(/^\/api\/workspaces\/([^/]+)\//)?.[1];
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  options.signal?.addEventListener("abort", abort, { once: true });
+  if (workspace) {
+    const requests =
+      privateRequests.get(workspace) ?? new Set<AbortController>();
+    requests.add(controller);
+    privateRequests.set(workspace, requests);
   }
-  if (!response.ok) {
-    if (response.status === 401) {
-      setCsrf("");
-      window.dispatchEvent(new Event("comfort:session-ended"));
+  try {
+    try {
+      response = await fetch(path, {
+        ...options,
+        signal: controller.signal,
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          ...options.headers,
+          ...(options.method && options.method !== "GET"
+            ? { "X-CSRFToken": csrf }
+            : {}),
+        },
+      });
+    } catch (error) {
+      if (controller.signal.aborted)
+        throw new DOMException("Aborted", "AbortError");
+      if (error instanceof Error && error.name === "AbortError") throw error;
+      throw new ApiError(0, "network");
     }
-    if (response.status === 404)
-      window.dispatchEvent(new Event("comfort:authority-check"));
-    throw new ApiError(response.status, "request_failed");
-  }
-  try {
-    return schema.parse(await response.json());
-  } catch {
-    throw new ApiError(502, "contract_mismatch");
+    if (!response.ok) {
+      if (response.status === 401) {
+        setCsrf("");
+        window.dispatchEvent(new Event("comfort:session-ended"));
+      }
+      if (response.status === 404)
+        window.dispatchEvent(new Event("comfort:authority-check"));
+      throw new ApiError(response.status, "request_failed");
+    }
+    try {
+      const payload = await response.json();
+      if (controller.signal.aborted)
+        throw new DOMException("Aborted", "AbortError");
+      return schema.parse(payload);
+    } catch {
+      if (controller.signal.aborted)
+        throw new DOMException("Aborted", "AbortError");
+      throw new ApiError(502, "contract_mismatch");
+    }
+  } finally {
+    options.signal?.removeEventListener("abort", abort);
+    if (workspace) {
+      const requests = privateRequests.get(workspace);
+      requests?.delete(controller);
+      if (requests?.size === 0) privateRequests.delete(workspace);
+    }
   }
 }
 export function post<T>(

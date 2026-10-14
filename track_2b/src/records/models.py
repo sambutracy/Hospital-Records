@@ -14,6 +14,75 @@ class WorkspaceModel(UUIDModel):
         constraints = [models.UniqueConstraint(fields=['workspace', 'id'], name='%(class)s_workspace_id')]
 
 
+def unknown_care_date():
+    return {'precision': 'unknown', 'year': None, 'month': None, 'day': None}
+
+
+class PatientCareNote(WorkspaceModel):
+    """Patient-reported organization, never an identity or authority binding."""
+    status = models.CharField(max_length=16, default='active')
+    revision = models.PositiveIntegerField(default=1)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    updated_at = models.DateTimeField(default=timezone.now)
+    class Meta(WorkspaceModel.Meta):
+        abstract = True
+        constraints = WorkspaceModel.Meta.constraints + [models.CheckConstraint(
+            condition=Q(status__in=['active', 'archived'], revision__gt=0), name='%(class)s_state')]
+
+
+class PatientHealthConcern(PatientCareNote):
+    title = models.CharField(max_length=180)
+    description = models.CharField(max_length=1000, blank=True)
+    kind = models.CharField(max_length=24, default='issue')
+    certainty = models.CharField(max_length=32, default='unconfirmed')
+    onset = models.JSONField(default=unknown_care_date)
+    class Meta(PatientCareNote.Meta):
+        db_table = 'patient_health_concerns'
+        constraints = PatientCareNote.Meta.constraints + [
+            models.CheckConstraint(condition=Q(kind__in=['issue', 'investigation', 'injury', 'condition', 'episode']), name='health_concern_kind'),
+            models.CheckConstraint(condition=Q(certainty__in=['unconfirmed', 'patient_reported_diagnosis']), name='health_concern_certainty'),
+        ]
+
+
+class ReportedPractitioner(PatientCareNote):
+    name = models.CharField(max_length=160)
+    specialty = models.CharField(max_length=120, blank=True)
+    facility = models.CharField(max_length=180, blank=True)
+    notes = models.CharField(max_length=500, blank=True)
+    class Meta(PatientCareNote.Meta):
+        db_table = 'reported_practitioners'
+
+
+class CareTeamAssignment(PatientCareNote):
+    practitioner = models.ForeignKey(ReportedPractitioner, on_delete=models.PROTECT, related_name='assignments')
+    concern = models.ForeignKey(PatientHealthConcern, null=True, on_delete=models.PROTECT, related_name='assignments')
+    role = models.CharField(max_length=120)
+    participation = models.CharField(max_length=16, default='historical')
+    start_date = models.JSONField(default=unknown_care_date)
+    end_date = models.JSONField(default=unknown_care_date)
+    notes = models.CharField(max_length=500, blank=True)
+    class Meta(PatientCareNote.Meta):
+        db_table = 'care_team_assignments'
+        constraints = PatientCareNote.Meta.constraints + [
+            models.CheckConstraint(condition=Q(participation__in=['current', 'historical']), name='care_participation'),
+        ]
+
+
+class CareHistory(WorkspaceModel):
+    """Database-written immutable revision snapshots; runtime role can only read."""
+    target_kind = models.CharField(max_length=24)
+    target_id = models.UUIDField()
+    revision = models.PositiveIntegerField()
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    snapshot = models.JSONField()
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'care_history'
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.UniqueConstraint(fields=['target_kind', 'target_id', 'revision'], name='care_history_revision'),
+            models.CheckConstraint(condition=Q(target_kind__in=['concern', 'practitioner', 'assignment'], revision__gt=0), name='care_history_kind'),
+        ]
+
+
 class FacilitySearchCache(models.Model):
     key = models.CharField(max_length=64,primary_key=True)
     results = models.JSONField()

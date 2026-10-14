@@ -2,11 +2,12 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useState,
   type ReactNode,
 } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { api, ApiError, setCsrf } from "../api/client";
+import { api, ApiError, setCsrf, cancelPrivateRequests } from "../api/client";
 import {
   sessionSchema,
   type ActingContext,
@@ -164,12 +165,13 @@ export function ContextScope({
         },
       }),
   );
-  useEffect(
+  useLayoutEffect(
     () => () => {
+      cancelPrivateRequests(context.workspace_id);
       void client.cancelQueries();
       client.clear();
     },
-    [client],
+    [client, context.workspace_id],
   );
   return (
     <PatientContext.Provider value={context}>

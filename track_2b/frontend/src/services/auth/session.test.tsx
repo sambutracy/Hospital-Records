@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import App from "../../app/App";
 import { SessionProvider } from "./session";
 import { context, workspaceId, record } from "../../test/fixtures";
-import { api, setCsrf } from "../api/client";
+import { api, setCsrf, post, cancelPrivateRequests } from "../api/client";
 import { recordsSchema } from "../api/contracts";
 const session = {
   contract_version: 1,
@@ -16,6 +16,28 @@ const session = {
   supported_context_kinds: ["patient"],
 };
 afterEach(() => vi.restoreAllMocks());
+it("aborts an old-context mutation before it can publish a navigation callback", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(
+    (_path, options) =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () =>
+          reject(new DOMException("Aborted", "AbortError")),
+        );
+      }),
+  );
+  const callback = vi.fn();
+  const pending = post(
+    `/api/workspaces/${workspaceId}/records/search/`,
+    recordsSchema,
+    { q: "" },
+  ).then((value) => {
+    callback();
+    return value;
+  });
+  cancelPrivateRequests(workspaceId);
+  await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  expect(callback).not.toHaveBeenCalled();
+});
 it("clears the protected view without disconnecting the native logout form", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(
     async (path) =>

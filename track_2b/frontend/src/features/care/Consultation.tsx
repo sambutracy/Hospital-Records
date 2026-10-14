@@ -11,6 +11,7 @@ import {
 } from "../../design-system/primitives";
 import { partialDate, typeLabel } from "../records/RecordCard";
 import Assistant from "../records/Assistant";
+import CareNavigation from "./CareNavigation";
 export default function Consultation() {
   const patient = usePatient();
   const { packetId } = useParams();
@@ -34,6 +35,7 @@ export default function Consultation() {
         Bring chosen information together. It stays private until a separate
         access grant is approved.
       </PageHeader>
+      <CareNavigation />
       {packetId ? (
         detail.isPending ? (
           <Loading />
@@ -103,11 +105,7 @@ export default function Consultation() {
             </EmptyState>
           )}
           <section className="quiet-section">
-            <h2>Care Team and health concerns</h2>
-            <p>
-              These new journeys are pending. Historical doctor associations
-              will be kept separate from access permissions.
-            </p>
+            <h2>Sharing a visit selection</h2>
             <p>
               Existing time-limited sharing and contribution tools remain
               available in the earlier interface.

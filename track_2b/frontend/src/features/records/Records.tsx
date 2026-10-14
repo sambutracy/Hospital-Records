@@ -56,7 +56,7 @@ export default function Records() {
           record.jobs[0]?.state,
         ),
       )
-        ? 12000
+        ? Math.min(30000, 8000 * 2 ** Math.min(2, query.state.dataUpdateCount))
         : false,
     refetchIntervalInBackground: false,
   });

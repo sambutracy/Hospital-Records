@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { cancelPrivateRequests } from "../services/api/client";
 import {
   Link,
   NavLink,
@@ -31,6 +32,8 @@ import Home from "../features/home/Home";
 const Records = lazy(() => import("../features/records/Records"));
 const Detail = lazy(() => import("../features/records/Detail"));
 const Consultation = lazy(() => import("../features/care/Consultation"));
+const CareHome = lazy(() => import("../features/care/CareHome"));
+const Relationships = lazy(() => import("../features/care/Relationships"));
 function ContextRoute() {
   const { workspaceId } = useParams();
   const session = useSession();
@@ -122,6 +125,7 @@ function Shell() {
             onSubmit={() => {
               // Keep this native POST form connected until navigation starts.
               // Removing the whole session shell here can cancel form submission.
+              cancelPrivateRequests(patient.workspace_id);
               void client.cancelQueries();
               client.clear();
               setSigningOut(true);
@@ -246,7 +250,13 @@ export default function App() {
         <Route path="home" element={<Home />} />
         <Route path="records" element={<Records />} />
         <Route path="records/:recordId" element={<Detail />} />
-        <Route path="care" element={<Consultation />} />
+        <Route path="care" element={<CareHome />} />
+        <Route
+          path="care/concerns"
+          element={<Relationships page="concerns" />}
+        />
+        <Route path="care/team" element={<Relationships page="team" />} />
+        <Route path="care/visits" element={<Consultation />} />
         <Route path="care/:packetId" element={<Consultation />} />
         <Route
           path="journal"

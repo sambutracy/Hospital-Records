@@ -3,8 +3,13 @@ from . import views
 from . import continuity_views as cv
 from identity import profile_views as pv
 from . import medication_views as mv
+from . import care_views as care
 
 urlpatterns=[
+    path('care/<str:kind>/',care.entries,name='care_entries'),
+    path('care/<str:kind>/<uuid:item_id>/',care.entry,name='care_entry'),
+    path('care/<str:kind>/<uuid:item_id>/status/',care.status,name='care_entry_status'),
+    path('care/<str:kind>/<uuid:item_id>/history/',care.history,name='care_entry_history'),
     path('profile/',pv.profile,name='profile_api'),
     path('care-circle/',pv.contacts,name='care_circle'),
     path('care-circle/<uuid:contact_id>/',pv.contact,name='care_circle_contact'),
