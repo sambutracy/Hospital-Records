@@ -285,6 +285,7 @@ def packet(request,workspace_id,packet_id):
 def assistant_payload(task):
     sources=list(task.sources.select_related('source_version__record','source_version__metadata_head').order_by('source_label'))
     return {'id':task.pk,'kind':task.kind,'state':task.state,'error_code':task.safe_error_code,
+        'packet_id':task.packet_revision.packet_id if task.packet_revision_id else None,
         'created_at':task.created_at,'finished_at':task.finished_at,'model':task.model_name or None,
         'prompt_version':task.prompt_version or None,'coverage':task.coverage,
         'configuration':task.configuration,'latency_seconds':task.latency_seconds,'usage':task.usage,

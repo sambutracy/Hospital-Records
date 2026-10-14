@@ -3,4 +3,5 @@
 <h1>Your care starts<br>with your records.</h1>
 <p class="lead">A place to keep your health history connected across visits.</p>
 <form method="post" action="{% url 'oidc_login' %}">{% csrf_token %}<button type="submit">Sign in securely</button></form>
+<p><a href="{% url 'comfort_frontend' %}">Open the new Comfort interface</a></p>
 {% if demo_mode %}<p class="quiet">Local prototype. Use a synthetic account from the demo setup.</p>{% endif %}</section>{% endblock %}

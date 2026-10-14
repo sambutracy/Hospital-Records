@@ -79,9 +79,9 @@ export default function Records() {
         title="Records"
         action={
           can("upload_source") && (
-            <Button onPress={() => setShowUpload((value) => !value)}>
+            <Button onPress={() => setShowUpload(true)}>
               <FilePlus2 size={18} aria-hidden="true" />
-              {showUpload ? "Hide upload" : "Add a record"}
+              Add a record
             </Button>
           )
         }

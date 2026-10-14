@@ -182,7 +182,7 @@ export default function Assistant({
       <div className="task-list">
         {tasks.data?.tasks
           .filter((task) =>
-            packetId ? task.kind === "packet_overview" : task.kind === "search",
+            packetId ? task.kind === "packet_overview" && task.packet_id === packetId : task.kind === "search",
           )
           .map((task) => (
             <TaskCard key={task.id} task={task} />

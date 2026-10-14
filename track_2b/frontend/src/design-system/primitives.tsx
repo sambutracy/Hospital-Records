@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   Button as AriaButton,
   Dialog as AriaDialog,
@@ -72,11 +72,13 @@ export function PageHeader({
   children?: ReactNode;
   action?: ReactNode;
 }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus({preventScroll:true}); }, [title]);
   return (
     <header className="page-header">
       <div>
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1 tabIndex={-1} id="page-title">
+        <h1 ref={heading} tabIndex={-1} id="page-title">
           {title}
         </h1>
         {children && <p>{children}</p>}

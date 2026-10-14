@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import axe from "axe-core";
@@ -44,6 +44,6 @@ describe("accessible foundations", () => {
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(confirm).not.toHaveBeenCalled();
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });

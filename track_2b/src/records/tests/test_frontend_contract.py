@@ -1,15 +1,15 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
-from .test_backend import BackendTests,pdf,VALUES
+from . import test_backend
 
 
 class FrontendRecordsContractTests(TestCase):
-    setUpTestData=classmethod(BackendTests.setUpTestData.__func__)
-    setUp=BackendTests.setUp
-    sign_in=BackendTests.sign_in
+    setUpTestData=classmethod(test_backend.BackendTests.setUpTestData.__func__)
+    setUp=test_backend.BackendTests.setUp
+    sign_in=test_backend.BackendTests.sign_in
     def test_private_search_filters_retain_partial_dates_and_revision(self):
-        version=self.client.post(self.base+'records/',{'file':SimpleUploadedFile('frontend-test.pdf',pdf(),content_type='application/pdf')}).json()['version']
-        response=self.client.post(self.base+f"records/{version['record_id']}/review/",{'source_version_id':version['id'],'expected_revision':0,'values':VALUES},content_type='application/json')
+        version=self.client.post(self.base+'records/',{'file':SimpleUploadedFile('frontend-test.pdf',test_backend.pdf(),content_type='application/pdf')}).json()['version']
+        response=self.client.post(self.base+f"records/{version['record_id']}/review/",{'source_version_id':version['id'],'expected_revision':0,'values':test_backend.VALUES},content_type='application/json')
         self.assertEqual(response.status_code,200)
         listing=self.client.post(self.base+'records/search/',{'q':'frontend-test','reviewed':'yes','document_year':2026,'document_type':'lab_report'},content_type='application/json').json()
         self.assertEqual(listing['total'],1); self.assertFalse(listing['has_more'])

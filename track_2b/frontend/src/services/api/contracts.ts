@@ -167,6 +167,7 @@ const citationSchema = z
   })
   .passthrough();
 export const taskSchema = z.object({
+  packet_id: uuid.nullable(),
   id: uuid,
   kind: z.string(),
   state: z.string(),
