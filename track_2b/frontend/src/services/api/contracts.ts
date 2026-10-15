@@ -118,6 +118,7 @@ export const statusSchema = z.object({
   model: z.string().nullable(),
   facility_search_enabled: z.boolean(),
   text_only: z.boolean().optional(),
+  worker: z.object({ available: z.boolean(), state: z.string() }).optional(),
 });
 export const imageSchema = z.object({
   preview_url: privateUrl.nullable().optional(),
@@ -172,11 +173,16 @@ export const taskSchema = z.object({
   kind: z.string(),
   state: z.string(),
   error_code: z.string(),
+  query: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+  started_at: z.string().nullable().optional(),
+  latency_seconds: z.number().nonnegative().nullable().optional(),
   coverage: z.record(z.string(), z.unknown()),
   result: z
     .object({
       abstained: z.boolean().optional(),
       representation: z.enum(["source_excerpts"]).optional(),
+      limitation_code: z.string().optional(),
       evidence_coverage: z
         .object({
           selected_sources: z.number().int().nonnegative(),

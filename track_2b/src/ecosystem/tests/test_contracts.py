@@ -79,6 +79,43 @@ class EcosystemContracts(unittest.TestCase):
                     with environment.operation_lock():pass
             with environment.operation_lock():pass
 
+    def test_controlled_evaluation_rejects_interactive_worker_before_creating_requests(self):
+        with tempfile.TemporaryDirectory() as directory,patch.object(environment,'RUNTIME',Path(directory)):
+            prepare.write_json(Path(directory)/'deployment/environment.json',{
+                'version':prepare.VERSION,'project':environment.PROJECT,'app':environment.APP,'keycloak':environment.KEYCLOAK})
+            result={'environment':prepare.VERSION,'manifest_sha256':prepare.sha((prepare.PUBLIC/'population.json').read_bytes()),'interactive_worker':True}
+            with patch.object(environment,'compose',return_value=json.dumps(result)),patch.object(evaluate,'clients_for') as clients:
+                with self.assertRaisesRegex(ValueError,'Stop the interactive'):
+                    evaluate.evaluate('functional',live=True,max_jobs=1)
+                clients.assert_not_called()
+
+    def test_local_client_cookie_adapter_requires_the_exact_origin_pair(self):
+        from ecosystem.client_demo import LOCAL
+        session=requests.Session()
+        session.cookies.set('KC_RESTART','test',domain='localhost.local',path='/realms/continuity/',secure=True)
+        session.cookies.set('sessionid','test',domain='localhost.local',path='/',secure=True)
+        loopback_login_cookies(session,LOCAL)
+        self.assertEqual({c.name:c.secure for c in session.cookies},{'KC_RESTART':False,'sessionid':True})
+        with patch.object(LOCAL,'APP','http://example.org'),self.assertRaises(ValueError):
+            loopback_login_cookies(session,LOCAL)
+
+    def test_ipv4_transport_is_mounted_only_on_explicit_local_origins(self):
+        from ecosystem.client import session_for,LoopbackAdapter
+        from ecosystem.client_demo import LOCAL
+        session=session_for(LOCAL)
+        self.assertIsInstance(session.get_adapter(LOCAL.APP+'/api/session/'),LoopbackAdapter)
+        self.assertIsInstance(session.get_adapter(LOCAL.KEYCLOAK+'/login'),LoopbackAdapter)
+        self.assertNotIsInstance(session.get_adapter('http://localhost:8000.evil.example/'),LoopbackAdapter)
+        self.assertEqual(session.get_adapter(LOCAL.APP+'/').poolmanager.connection_pool_kw['source_address'],('127.0.0.1',0))
+        session.close()
+
+    def test_local_demo_receipts_cannot_reuse_evaluation_realm_ids(self):
+        from ecosystem import client_demo
+        with tempfile.TemporaryDirectory() as directory,patch.object(client_demo,'DIRECTORY',Path(directory)):
+            state=client_demo.load_state();self.assertEqual(state['app'],'http://localhost:8000')
+            state['keycloak']='http://127.0.0.1:8091';client_demo.save(state)
+            with self.assertRaisesRegex(ValueError,'another installation'):client_demo.load_state()
+
     def test_existing_account_requires_exact_saved_subject_without_password_reset(self):
         session=Mock();session.headers={}
         session.post.return_value=Mock(status_code=200,json=lambda:{'access_token':'synthetic-test-token'})

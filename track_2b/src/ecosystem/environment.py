@@ -98,13 +98,15 @@ def initialize():
     write_json(marker,{'version':VERSION,'project':PROJECT,'app':APP,'keycloak':KEYCLOAK})
 
 
-def guard():
+def guard(*,controlled=False):
     marker=RUNTIME/'deployment/environment.json'
     if not marker.is_file() or json.loads(marker.read_text(encoding='utf-8'))!={'version':VERSION,'project':PROJECT,'app':APP,'keycloak':KEYCLOAK}:
         raise ValueError('Dedicated synthetic environment is required')
     result=json.loads(compose('exec','-T','app','python','src/manage.py','ecosystem_jobs','--mode','inspect'))
     if result.get('environment')!=VERSION or result.get('manifest_sha256')!=sha((PUBLIC/'population.json').read_bytes()):
         raise ValueError('Server environment or pinned population differs')
+    if controlled and result.get('interactive_worker'):
+        raise ValueError('Stop the interactive assistant worker before controlled evaluation')
     return result
 
 

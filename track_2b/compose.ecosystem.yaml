@@ -1,5 +1,6 @@
 # Always combine with compose.yaml using --project-name comfort-ecosystem and the
-# generated .runtime/ecosystem/deployment/.env. Never start the ordinary worker.
+# generated .runtime/ecosystem/deployment/.env. The interactive worker processes
+# assistant requests only; bulk metadata generation remains explicitly bounded.
 services:
   keycloak:
     volumes:
@@ -32,6 +33,30 @@ services:
       - ./data/ecosystem-v1:/ecosystem:ro
       - ./.runtime/ecosystem:/ecosystem-runtime
     networks: [default, shared_inference]
+  assistant-worker:
+    extends:
+      file: compose.yaml
+      service: worker
+    profiles: [interactive]
+    command: ["python", "src/manage.py", "process_records", "--kind", "assistant"]
+    environment:
+      COMFORT_SYNTHETIC_ECOSYSTEM: comfort-ecosystem-v1
+      OIDC_ISSUER: http://127.0.0.1:8091/realms/continuity
+      LLM_NAME: Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF
+      LLM_BASE_URL: http://inference:8080/v1
+      LLM_API_KEY_FILE: /run/secrets/apertus_key
+      ASSISTANT_SEARCH_SOURCE_LIMIT: "10"
+    volumes:
+      - ./.runtime/local-model/server.key:/run/secrets/apertus_key:ro
+      - ./data/ecosystem-v1:/ecosystem:ro
+    networks: [default, shared_inference]
+    healthcheck:
+      disable: false
+      test: ["CMD", "python", "-c", "import os,time; assert time.time()-os.stat('/tmp/records-worker-heartbeat').st_mtime<30"]
+      interval: 10s
+      start_period: 15s
+      timeout: 5s
+      retries: 3
 networks:
   shared_inference:
     external: true

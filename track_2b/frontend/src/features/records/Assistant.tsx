@@ -9,7 +9,13 @@ import {
 } from "../../services/api/contracts";
 import { Button, Notice } from "../../design-system/primitives";
 const pending = new Set(["queued", "processing", "waiting_model"]);
-export function TaskCard({ task }: { task: AssistantTask }) {
+export function TaskCard({
+  task,
+  workerAvailable,
+}: {
+  task: AssistantTask;
+  workerAvailable?: boolean;
+}) {
   const patient = usePatient();
   const client = useQueryClient();
   const cancel = useMutation({
@@ -32,13 +38,31 @@ export function TaskCard({ task }: { task: AssistantTask }) {
             ? "Visit overview draft"
             : "Term explanation"}
       </h3>
+      {task.kind === "search" && task.query && (
+        <p>
+          Search: <strong>{task.query}</strong>
+        </p>
+      )}
+      {task.created_at && (
+        <p>
+          <time dateTime={task.created_at}>
+            Requested {new Date(task.created_at).toLocaleString()}
+          </time>
+        </p>
+      )}
       <Notice tone={task.state === "failed" ? "warning" : "info"} live>
         {{
-          queued: "Your request is saved and queued.",
+          queued:
+            workerAvailable === false
+              ? "Your request is saved. Processing is currently unavailable; it will remain queued until the service returns."
+              : "Your request is saved and queued. Requests run one at a time.",
           processing:
             "Apertus is working. You can leave and return to this saved request.",
           waiting_model: "Your request is saved and waiting for model access.",
-          completed: "AI suggestions · review against their sources.",
+          completed:
+            task.result?.limitation_code === "no_readable_report_text"
+              ? "A readable report is needed. No AI overview was generated."
+              : "AI suggestions · review against their sources.",
           failed:
             task.error_code === "no_readable_report_text"
               ? "Add a written report with readable text before requesting an overview. Your originals are unchanged."
@@ -48,6 +72,20 @@ export function TaskCard({ task }: { task: AssistantTask }) {
           cancelled: "This request was cancelled.",
         }[task.state] ?? "Request saved."}
       </Notice>
+      {task.result?.limitation_code === "no_readable_report_text" && (
+        <p>
+          Wait for text reading to finish, or add a readable written report,
+          then request a new overview. Dates and filenames alone cannot describe
+          your health history.
+        </p>
+      )}
+      {task.state === "completed" &&
+        typeof task.latency_seconds === "number" && (
+          <p>
+            Completed in {Math.max(1, Math.round(task.latency_seconds))} seconds
+            of processing.
+          </p>
+        )}
       {task.sources.some(
         (source) =>
           !source.current_version || source.metadata_changed_since_request,
@@ -92,15 +130,30 @@ export function TaskCard({ task }: { task: AssistantTask }) {
       ))}
       {(result?.items ?? []).map((item, index) => (
         <section key={index}>
-          {result?.representation !== "source_excerpts" && <p>{item.text}</p>}
-          {item.citations.map((citation, i) => (
-            <blockquote className="quote" key={i}>
-              <p>{citation.quote}</p>
-              {citation.download_url && (
-                <a href={citation.download_url}>Read the exact original</a>
+          {result?.representation === "source_excerpts" ? (
+            <blockquote className="quote">
+              {item.citations.map((citation, i) => (
+                <p key={i}>{citation.quote}</p>
+              ))}
+              {item.citations[0]?.download_url && (
+                <a href={item.citations[0].download_url}>
+                  Read the exact original
+                </a>
               )}
             </blockquote>
-          ))}
+          ) : (
+            <>
+              <p>{item.text}</p>
+              {item.citations.map((citation, i) => (
+                <blockquote className="quote" key={i}>
+                  <p>{citation.quote}</p>
+                  {citation.download_url && (
+                    <a href={citation.download_url}>Read the exact original</a>
+                  )}
+                </blockquote>
+              ))}
+            </>
+          )}
         </section>
       ))}
       {pending.has(task.state) && (
@@ -138,6 +191,7 @@ export default function Assistant({
     queryKey: ["assistant-status"],
     queryFn: ({ signal }) =>
       api(base + "assistant/status/", statusSchema, { signal }),
+    refetchInterval: 10000,
   });
   const tasks = useQuery({
     queryKey: ["assistant-tasks"],
@@ -145,9 +199,11 @@ export default function Assistant({
       api(base + "assistant/tasks/", tasksSchema, { signal }),
     refetchInterval: (query) =>
       query.state.data?.tasks.some((task) => pending.has(task.state))
-        ? Math.min(30000, 8000 * 2 ** Math.min(2, query.state.dataUpdateCount))
+        ? 3000
         : false,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
   });
   const mutation = useMutation({
     mutationFn: () =>
@@ -158,9 +214,24 @@ export default function Assistant({
           ? { kind: "packet_overview", parameters: { packet_id: packetId } }
           : { kind: "search", parameters: { query } },
       ),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: ["assistant-tasks"] }),
+    onSuccess: (task) => {
+      client.setQueryData(
+        ["assistant-tasks"],
+        (previous: { tasks: AssistantTask[] } | undefined) => ({
+          tasks: [
+            task,
+            ...(previous?.tasks ?? []).filter((item) => item.id !== task.id),
+          ],
+        }),
+      );
+      void client.invalidateQueries({ queryKey: ["assistant-tasks"] });
+    },
   });
+  const activeRequest = tasks.data?.tasks.find(
+    (task) =>
+      task.kind === (packetId ? "packet_overview" : "search") &&
+      pending.has(task.state),
+  );
   return (
     <section className="form-section">
       <h2>
@@ -176,6 +247,7 @@ export default function Assistant({
           variant="secondary"
           isDisabled={
             mutation.isPending ||
+            !!activeRequest ||
             (!packetId && query.trim().length < 3) ||
             status.isError
           }
@@ -183,13 +255,37 @@ export default function Assistant({
         >
           {packetId ? "Request an overview draft" : "Find related records"}
         </Button>
+        <Button
+          variant="quiet"
+          isDisabled={tasks.isFetching}
+          onPress={() => void tasks.refetch()}
+        >
+          Refresh results
+        </Button>
         {status.data && !status.data.configured && (
           <span>Requests will wait until model access is configured.</span>
+        )}
+        {status.data?.configured && status.data.worker?.available === false && (
+          <Notice tone="warning">
+            Processing is currently unavailable. Saved requests will stay queued
+            until the service returns.
+          </Notice>
         )}
       </div>
       {mutation.isError && (
         <Notice tone="error" live>
           {mutation.error.message}
+        </Notice>
+      )}
+      {activeRequest && packetId && activeRequest.packet_id !== packetId && (
+        <Notice>
+          Another visit overview is in progress.{" "}
+          <a
+            href={`/app/workspaces/${patient.id}/care/${activeRequest.packet_id}`}
+          >
+            Open its saved visit selection
+          </a>
+          .
         </Notice>
       )}
       {mutation.isSuccess && (
@@ -206,7 +302,11 @@ export default function Assistant({
               : task.kind === "search",
           )
           .map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              workerAvailable={status.data?.worker?.available}
+            />
           ))}
       </div>
     </section>

@@ -12,15 +12,25 @@ from intelligence.trial import TrialError, configuration
 from records.models import AssistantTask, IngestionJob
 from records.worker import finish_failure
 from records.assistant_worker import finish_failure as assistant_failure
+from records import worker_health
 
 
 class Command(BaseCommand):
     help='Serial, bounded background processing; no automatic charged retries.'
     def add_arguments(self,parser):
         parser.add_argument('--once',action='store_true')
+        parser.add_argument('--kind',choices=['all','assistant','record'],default='all')
     def handle(self,*args,**options):
+        self.instance=uuid.uuid4().hex
+        self.kind=options['kind']
+        self.assistant_burst=0
+        try:self.run_loop(options)
+        finally:worker_health.beat(self.instance,self.kind,'stopped')
+
+    def run_loop(self,options):
         while True:
             Path('/tmp/records-worker-heartbeat').touch()
+            worker_health.beat(self.instance,self.kind)
             now=timezone.now()
             expired=IngestionJob.objects.filter(state='processing',lease_expires_at__lte=now)
             for job in expired:
@@ -35,11 +45,13 @@ class Command(BaseCommand):
                 states=['queued']
                 child_timeout=150
             with transaction.atomic():
-                record_job=IngestionJob.objects.select_for_update(skip_locked=True).filter(state__in=states).order_by('created_at').first()
-                assistant_job=AssistantTask.objects.select_for_update(skip_locked=True).filter(state__in=states).order_by('created_at').first()
-                candidates=[job for job in (record_job,assistant_job) if job is not None]
-                job=min(candidates,key=lambda job:job.created_at) if candidates else None
+                record_job=IngestionJob.objects.select_for_update(skip_locked=True).filter(state__in=states).order_by('created_at').first() if self.kind!='assistant' else None
+                assistant_job=AssistantTask.objects.select_for_update(skip_locked=True).filter(state__in=states).order_by('created_at').first() if self.kind!='record' else None
+                # Interactive requests need not sit behind a bulk upload. Give
+                # metadata a turn after at most three assistant requests.
+                job=assistant_job if assistant_job is not None and (record_job is None or self.assistant_burst<3) else record_job
                 if job:
+                    self.assistant_burst=self.assistant_burst+1 if isinstance(job,AssistantTask) else 0
                     job.state='processing'
                     job.lease_token=uuid.uuid4()
                     job.started_at=now
@@ -56,11 +68,12 @@ class Command(BaseCommand):
                     deadline=time.monotonic()+child_timeout
                     while process.poll() is None:
                         Path('/tmp/records-worker-heartbeat').touch()
+                        worker_health.beat(self.instance,self.kind)
                         if time.monotonic()>=deadline:
                             process.kill()
                             process.wait()
                             raise subprocess.TimeoutExpired(process.args,child_timeout)
-                        time.sleep(2)
+                        time.sleep(1)
                     if process.returncode:
                         failure(job.pk,job.lease_token,'worker_process_failed')
                 except subprocess.TimeoutExpired:
@@ -69,4 +82,4 @@ class Command(BaseCommand):
             if options['once']:
                 return
             if not job:
-                time.sleep(3)
+                time.sleep(1)

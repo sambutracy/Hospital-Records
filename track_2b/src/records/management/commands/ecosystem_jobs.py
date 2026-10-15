@@ -38,8 +38,12 @@ class Command(BaseCommand):
             raise CommandError('Dedicated synthetic stack required')
         suite=json.loads(manifest.read_text(encoding='utf-8'))
         if suite.get('version')!=VERSION or suite.get('synthetic_only') is not True: raise CommandError('Wrong fixture manifest')
+        from records.worker_health import status as worker_status
         if options['mode']=='inspect':
-            self.stdout.write(json.dumps({'environment':VERSION,'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()}));return
+            self.stdout.write(json.dumps({'environment':VERSION,'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+                'interactive_worker':worker_status()['available']}));return
+        if worker_status()['available']:
+            raise CommandError('Stop the interactive assistant worker before controlled evaluation')
         if not 1<=options['limit']<=32 or len(options['ids'])>32: raise CommandError('Explicit bounded batch required')
         if not options['ids']: raise CommandError('Select explicit fixture job IDs')
         bindings=Path('/ecosystem-runtime/accounts.private.json')

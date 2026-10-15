@@ -160,7 +160,7 @@ def create_task(user,workspace_id,kind,parameters):
                     'lexical_preselection_records':total, 'lexical_matches':lexical_matches,
                     'all_records_in_model_context':len(selected)==total,
                     'scope_note':'Lexical ranking covers authorized current versions, including older uploads. Apertus sees only the selected bounded contexts; no match does not establish absence from medical history.'})
-            limited=kind=='packet_overview' and coverage['text_available_sources']==0 and all(version.content_kind=='medical_image' for version,_ in selected)
+            limited=kind=='packet_overview' and coverage['text_available_sources']==0
             completion={}
             if limited:
                 for version,_ in selected:

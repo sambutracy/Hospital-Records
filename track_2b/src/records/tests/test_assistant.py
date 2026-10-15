@@ -338,6 +338,15 @@ class AssistantTests(TestCase):
             config.assert_not_called(); request.assert_not_called()
         task.refresh_from_db()
         self.assertEqual(task.result['limitation_code'],'no_readable_report_text')
+
+    def test_unextracted_pdf_cannot_produce_a_date_only_history_overview(self):
+        version,_=services.ingest(self.alice,self.workspace.pk,SimpleUploadedFile('not-read.pdf',pdf('A readable report not yet extracted.')))
+        packet=services.create_packet(self.alice,self.workspace.pk,'Before extraction',[str(version.pk)])
+        task=self.create('packet_overview',{'packet_id':str(packet.pk)})
+        self.assertEqual(task.state,'completed')
+        self.assertTrue(task.result['abstained'])
+        self.assertFalse(task.configuration['model_generation_performed'])
+        self.assertEqual(task.result['limitation_code'],'no_readable_report_text')
         self.assertFalse(task.configuration['model_generation_performed'])
         self.assertEqual(task.model_name,'')
         self.assertTrue(task.result['abstained'])
@@ -370,8 +379,9 @@ class AssistantTests(TestCase):
         config={'model':assistant_worker.LOCAL_TEXT_MODEL,'base':'http://inference:8080/v1','key':'test-local'}
         def response(config,route,request):
             context=json.loads(request['messages'][-1]['content'])
-            chunk=next(c for s in context['sources'] for c in s['chunks'] if 'CBC report' in c['text'])
-            return {'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'evidence':[chunk['chunk_id']],'abstained':False})}}]}
+            chunk=next(c for c in context['excerpts'] if 'CBC report' in c[2])
+            return {'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'picks':[chunk[0]]})}}],
+                'timings':{'prompt_n':80,'prompt_ms':12.5,'predicted_ms':float('nan'),'untrusted':'must-not-be-stored'}}
         with override_settings(LOCAL_ASSISTANT_MODE='extractive'),patch('records.assistant_worker.configuration',return_value=config),patch('records.assistant_worker.available_models'),patch('records.assistant_worker.request_json',side_effect=response):
             self.assertEqual(assistant_worker.process_one(task.pk,token),'completed')
         task.refresh_from_db()
@@ -379,8 +389,29 @@ class AssistantTests(TestCase):
         self.assertEqual(task.result['matches'][0]['source_version_id'],str(self.alpha.pk))
         self.assertEqual(task.result['matches'][0]['citations'][0]['source_sha256'],self.alpha.sha256)
         self.assertEqual(task.configuration['generation_strategy'],'source_excerpt_selection')
+        self.assertEqual(task.usage['runtime_timings'],{'prompt_n':80,'prompt_ms':12.5})
         self.assertLessEqual(task.configuration['max_tokens'],128)
         self.assertNotIn('FOREIGN-PATIENT-RECORD',json.dumps(task.configuration))
+
+    def test_long_exact_overview_quote_preserves_qualification_without_exceeding_item_contract(self):
+        text=('Historical medication information is retained in this source. '*5+
+            'Medicine Q 5 mg was prescribed. Whether it was taken is unknown.')
+        version=self.source(self.alice,self.workspace,text,'long-qualification.pdf')
+        packet=services.create_packet(self.alice,self.workspace.pk,'Full qualification',[str(version.pk)])
+        task=self.create('packet_overview',{'packet_id':str(packet.pk)})
+        token=self.claim(task)
+        config={'model':assistant_worker.LOCAL_TEXT_MODEL,'base':'http://inference:8080/v1','key':'test-local'}
+        response={'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'picks':[1]})}}]}
+        with override_settings(LOCAL_ASSISTANT_MODE='extractive'),patch('records.assistant_worker.configuration',return_value=config),patch('records.assistant_worker.available_models'),patch('records.assistant_worker.request_json',return_value=response):
+            self.assertEqual(assistant_worker.process_one(task.pk,token),'completed')
+        task.refresh_from_db();item=task.result['items'][0]
+        self.assertLessEqual(len(item['text']),300)
+        self.assertEqual(len(item['citations']),2)
+        self.assertTrue(all(len(c['quote'])<=300 for c in item['citations']))
+        complete=' '.join(c['quote'] for c in item['citations'])
+        self.assertGreater(len(complete),300)
+        self.assertIn('Whether it was taken is unknown.',complete)
+        self.assertEqual(' '.join(complete.split()),' '.join(text.split()))
 
     @skipUnless(connection.vendor=='postgresql','PostgreSQL assistant guards')
     def test_database_protects_snapshots_parameters_and_terminal_results(self):

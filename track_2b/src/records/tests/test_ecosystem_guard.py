@@ -4,9 +4,30 @@ from django.test import SimpleTestCase,override_settings
 from unittest.mock import patch,Mock
 from types import SimpleNamespace
 from records.management.commands.ecosystem_jobs import check_fixture_sources
+from records.management.commands.prepare_client_demo import validate_bindings
 
 
 class EcosystemGuardTests(SimpleTestCase):
+    @override_settings(DEMO_MODE=False)
+    def test_client_preparation_rejects_nondemo_installation_before_file_read(self):
+        with self.assertRaisesRegex(CommandError,'Ordinary localhost demo'):
+            call_command('prepare_client_demo',bindings='not-read.json')
+
+    @override_settings(DEMO_MODE=True,OIDC_ISSUER='https://other.example/realms/continuity')
+    def test_client_preparation_rejects_another_issuer(self):
+        with self.assertRaisesRegex(CommandError,'Ordinary localhost demo'):
+            call_command('prepare_client_demo',bindings='not-read.json')
+
+    def test_client_bindings_reject_mixed_workspace_or_unbounded_input(self):
+        valid={'version':'comfort-ecosystem-v1','issuer':'http://localhost:8081/realms/continuity',
+            'accounts':[{'workspace_id':'w1','username':'ecosystem.p01'}],
+            'documents':[{'workspace_id':'w1'}]}
+        validate_bindings(valid)
+        valid['documents']=[{'workspace_id':'another'}]
+        with self.assertRaisesRegex(CommandError,'not a bound fixture'):validate_bindings(valid)
+        valid['documents']=[{'workspace_id':'w1'}]*309
+        with self.assertRaisesRegex(CommandError,'bounded'):validate_bindings(valid)
+
     def test_capture_rejects_unlisted_originals_even_for_a_fixture_account(self):
         suite={'documents':[{'sha256':'known'}],'auxiliary_documents':[]}
         with self.assertRaisesRegex(CommandError,'Non-fixture source bytes'):

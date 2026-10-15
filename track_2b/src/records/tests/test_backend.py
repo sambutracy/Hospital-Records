@@ -1,5 +1,5 @@
 from datetime import timedelta
-from io import BytesIO
+from io import BytesIO, StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,6 +8,8 @@ import uuid
 from unittest import skipUnless
 from unittest.mock import patch
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
@@ -357,6 +359,51 @@ class BackendTests(TestCase):
         job=self.claim(version)
         self.assertEqual(worker.process_one(job.pk,job.lease_token),'needs_ocr')
         self.assertEqual(storage.read_original(version),data)
+
+    def test_explicit_fixture_extraction_has_text_but_no_model_or_proposals(self):
+        version=self.upload()
+        self.confirm(version)
+        job=self.claim(version)
+        with patch('records.worker.configuration') as config,patch('records.worker.request_json') as request:
+            self.assertEqual(worker.process_one(job.pk,job.lease_token,extract_only=True),'manual_review')
+        config.assert_not_called();request.assert_not_called()
+        job.refresh_from_db()
+        self.assertEqual(job.safe_error_code,'text_extracted_manual_metadata')
+        self.assertTrue(TextExtraction.objects.filter(source_version=version).exists())
+        self.assertFalse(GenerationRun.objects.exists())
+        self.assertFalse(DerivedArtifact.objects.exists())
+        self.assertEqual(version.metadata_head.revision,1)
+
+    @override_settings(DEMO_MODE=True,OIDC_ISSUER='http://localhost:8081/realms/continuity')
+    def test_client_preparation_requires_exact_bound_identity_and_is_resumable(self):
+        original=self.upload()
+        fixture=resolve_verified_identity('http://localhost:8081/realms/continuity','client-demo-p01','Synthetic P01')
+        self.workspace=PatientWorkspace.objects.get(subject_patient__person=fixture.person)
+        self.base=f'/api/workspaces/{self.workspace.pk}/';self.sign_in(fixture)
+        version=self.upload('Fictional client demo laboratory report');self.confirm(version)
+        binding={'version':'comfort-ecosystem-v1','issuer':'http://localhost:8081/realms/continuity',
+            'accounts':[{'workspace_id':str(self.workspace.pk),'user_id':str(fixture.pk),'subject':'client-demo-p01','username':'ecosystem.p01'}],
+            'documents':[{'workspace_id':str(self.workspace.pk),'record_id':str(version.record_id),'version_id':str(version.pk),'sha256':version.sha256}]}
+        path=Path(self.directory.name)/'client-bindings.json';path.write_text(json.dumps(binding))
+        with patch('records.worker.request_json') as request:
+            call_command('prepare_client_demo',bindings=str(path),stdout=StringIO())
+            call_command('prepare_client_demo',bindings=str(path),stdout=StringIO())
+        request.assert_not_called()
+        self.assertEqual(TextExtraction.objects.filter(source_version=version).count(),1)
+        self.assertFalse(TextExtraction.objects.filter(source_version=original).exists())
+        self.assertEqual(original.jobs.get().state,'queued')
+        binding['documents'][0]['sha256']='wrong-checksum';path.write_text(json.dumps(binding))
+        with self.assertRaisesRegex(CommandError,'Exact fixture identity/source'):
+            call_command('prepare_client_demo',bindings=str(path),stdout=StringIO())
+
+    def test_explicit_fixture_extraction_still_requires_upload_authority(self):
+        version=self.upload();job=self.claim(version)
+        AccessCapability.objects.filter(membership__user=self.alice,rule__capability_key='upload_source').update(revoked_at=timezone.now())
+        with patch('records.worker.request_json') as request:
+            self.assertEqual(worker.process_one(job.pk,job.lease_token,extract_only=True),'failed')
+        request.assert_not_called()
+        self.assertFalse(TextExtraction.objects.exists())
+        job.refresh_from_db();self.assertEqual(job.safe_error_code,'authority_unavailable')
 
     def test_mocked_model_proposals_do_not_overwrite_patient_review(self):
         version=self.upload()

@@ -1,6 +1,7 @@
 """Assistant generations run in the same bounded, serial processing child."""
 import json
 import time
+import math
 from django.conf import settings
 from django.db import transaction
 from django.http import Http404
@@ -77,7 +78,7 @@ def process_one(task_id,token):
         # Check exact original integrity before any source context leaves the worker.
         for source in sources:
             read_original(source.source_version)
-        if task.kind=='packet_overview' and task.coverage.get('text_available_sources')==0 and all(source.source_version.content_kind=='medical_image' for source in sources):
+        if task.kind=='packet_overview' and task.coverage.get('text_available_sources')==0:
             with transaction.atomic():
                 task=active_task(task_id,token)
                 task.state='completed'
@@ -107,7 +108,7 @@ def process_one(task_id,token):
         max_tokens=local_evidence.MAX_TOKENS if local_plan is not None else TOKEN_LIMITS[task.kind]
         constrained={**output_format(task,sources),'cache_prompt':True} if config['model']==LOCAL_TEXT_MODEL else {}
         if local_plan is not None:constrained={**local_evidence.output_format(local_plan,task.kind),'cache_prompt':True}
-        context_text=json.dumps(context,ensure_ascii=False,separators=(',',':')) if local_plan is not None else serialize_context(context)
+        context_text=local_evidence.wire_context(task,local_plan) if local_plan is not None else serialize_context(context)
         with transaction.atomic():
             task=active_task(task_id,token)
             task.model_name=config['model']
@@ -133,7 +134,7 @@ def process_one(task_id,token):
             payload=json.loads(choice['message']['content'])
             if config['key'] and config['key'] in json.dumps(payload):
                 raise ValueError('Invalid provider output.')
-            if local_plan is not None:payload=local_evidence.expand(task,payload,local_plan)
+            if local_plan is not None:payload=local_evidence.expand(task,local_evidence.decode(task,payload,local_plan),local_plan)
             result=validate_response(task,payload,sources)
             if local_plan is not None:
                 result['representation']='source_excerpts'
@@ -152,6 +153,12 @@ def process_one(task_id,token):
             task.latency_seconds=time.perf_counter()-started
             usage=response.get('usage',{})
             task.usage={key:value for key,value in usage.items() if key in ('prompt_tokens','completion_tokens','total_tokens') and type(value) is int and value>=0} if isinstance(usage,dict) else {}
+            timings=response.get('timings',{})
+            if isinstance(timings,dict):
+                measured={key:value for key,value in timings.items()
+                    if key in ('cache_n','prompt_n','prompt_ms','prompt_per_second','predicted_n','predicted_ms','predicted_per_second')
+                    and type(value) in (int,float) and value>=0 and math.isfinite(value)}
+                if measured:task.usage['runtime_timings']=measured
             task.save(update_fields=['state','result','safe_error_code','finished_at','latency_seconds','usage'])
             audit(task.requested_by,task.workspace,'assistant.completed',task)
         return 'completed'

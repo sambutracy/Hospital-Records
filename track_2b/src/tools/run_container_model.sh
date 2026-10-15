@@ -9,6 +9,7 @@ exec /app/llama-server \
   --model /models/apertus-v1.5-8b-text-q4_k_m.gguf \
   --alias Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF \
   --host 0.0.0.0 --port 8080 --ctx-size 16384 --parallel 1 \
-  --threads 6 --threads-batch 8 --jinja \
+  --threads 6 --threads-batch 6 --jinja \
+  --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 \
   --chat-template-kwargs '{"enable_thinking":false}' \
   --api-key-file /models/server.key --no-webui --log-disable

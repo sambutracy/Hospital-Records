@@ -8,10 +8,159 @@ import { context, record, recordId, workspaceId } from "../../test/fixtures";
 import Detail from "./Detail";
 import Upload, { validateFile } from "./Upload";
 import { partialDate } from "./RecordCard";
-import { TaskCard } from "./Assistant";
+import Assistant, { TaskCard } from "./Assistant";
 import { taskSchema } from "../../services/api/contracts";
 afterEach(() => vi.restoreAllMocks());
 describe("source fidelity and input handling", () => {
+  it("keeps the two contiguous parts of a longer source passage together", () => {
+    const task = taskSchema.parse({
+      id: recordId,
+      packet_id: null,
+      kind: "packet_overview",
+      state: "completed",
+      error_code: "",
+      coverage: {},
+      sources: [],
+      result: {
+        representation: "source_excerpts",
+        items: [
+          {
+            text: "Selected report passage",
+            citations: [
+              {
+                quote: "Medicine Q was prescribed.",
+                download_url: `/api/workspaces/${workspaceId}/versions/${record.current_version.id}/original/`,
+              },
+              {
+                quote: "Whether it was taken is unknown.",
+                download_url: `/api/workspaces/${workspaceId}/versions/${record.current_version.id}/original/`,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const { container } = render(
+      <ContextScope context={context}>
+        <TaskCard task={task} />
+      </ContextScope>,
+    );
+    expect(container.querySelectorAll("blockquote")).toHaveLength(1);
+    expect(container.querySelector("blockquote")).toHaveTextContent(
+      "Medicine Q was prescribed.Whether it was taken is unknown.",
+    );
+    expect(
+      screen.getAllByRole("link", { name: "Read the exact original" }),
+    ).toHaveLength(1);
+  });
+  it("distinguishes a stopped worker from active generation", () => {
+    const task = taskSchema.parse({
+      id: recordId,
+      packet_id: null,
+      kind: "search",
+      state: "queued",
+      error_code: "",
+      coverage: {},
+      sources: [],
+      result: null,
+    });
+    render(
+      <ContextScope context={context}>
+        <TaskCard task={task} workerAvailable={false} />
+      </ContextScope>,
+    );
+    expect(
+      screen.getByText(/Processing is currently unavailable/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Apertus is working/)).not.toBeInTheDocument();
+  });
+  it("shows a saved request immediately and refreshes its completed source-linked result", async () => {
+    const queued = {
+      id: recordId,
+      packet_id: null,
+      kind: "search",
+      state: "queued",
+      error_code: "",
+      coverage: {},
+      sources: [],
+      result: null,
+    };
+    let submitted = false;
+    let finished = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, options) => {
+      const path = String(input);
+      if (path.endsWith("/status/"))
+        return new Response(
+          JSON.stringify({
+            configured: true,
+            model: "local-apertus",
+            facility_search_enabled: false,
+            worker: { available: true, state: "ready" },
+          }),
+        );
+      if (options?.method === "POST") {
+        submitted = true;
+        return new Response(JSON.stringify(queued), { status: 202 });
+      }
+      return new Response(
+        JSON.stringify({
+          tasks: !submitted
+            ? []
+            : [
+                finished
+                  ? {
+                      ...queued,
+                      state: "completed",
+                      latency_seconds: 12,
+                      result: {
+                        representation: "source_excerpts",
+                        abstained: false,
+                        matches: [
+                          {
+                            reason: "Supported source",
+                            citations: [
+                              {
+                                quote: "Father had type 2 diabetes.",
+                                download_url: `/api/workspaces/${workspaceId}/versions/${record.current_version.id}/original/`,
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    }
+                  : queued,
+              ],
+        }),
+      );
+    });
+    render(
+      <ContextScope context={context}>
+        <Assistant query="diabetes" />
+      </ContextScope>,
+    );
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Find related records",
+      }),
+    );
+    await screen.findByText(/Your request is saved and queued/);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Refresh results" }),
+      ).toBeEnabled(),
+    );
+    finished = true;
+    await user.click(screen.getByRole("button", { name: "Refresh results" }));
+    await screen.findByText("Father had type 2 diabetes.");
+    expect(screen.getByText(/Completed in 12 seconds/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Read the exact original" }),
+    ).toHaveAttribute(
+      "href",
+      `/api/workspaces/${workspaceId}/versions/${record.current_version.id}/original/`,
+    );
+  });
   it("labels extractive model output and retains its source link", () => {
     const task = taskSchema.parse({
       id: recordId,

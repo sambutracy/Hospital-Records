@@ -9,7 +9,7 @@ from ecosystem import prepare,environment,run
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation',choices=['prepare','plan','init','start','seed','verify','workflows','journeys','process','evaluate','report'])
+    parser.add_argument('operation',choices=['prepare','plan','init','start','interactive','seed','verify','workflows','journeys','process','evaluate','report'])
     parser.add_argument('--profile',choices=['smoke','functional','stress'],default='smoke')
     parser.add_argument('--max-documents',type=int,default=32)
     parser.add_argument('--max-jobs',type=int,default=16)
@@ -24,6 +24,10 @@ def main():
     elif options.operation=='init': environment.initialize();result={'initialized':True,'project':environment.PROJECT}
     elif options.operation=='start':
         environment.initialize();environment.compose('up','--build','--detach','--wait','app');result={'app':environment.APP}
+    elif options.operation=='interactive':
+        environment.initialize()
+        environment.compose('--profile','interactive','up','--build','--detach','--wait','app','assistant-worker')
+        result={'app':environment.APP,'assistant_processing':True,'bulk_metadata_processing':False}
     elif options.operation=='seed': result=run.seed(options.profile,options.max_documents)
     elif options.operation=='verify': result=run.verify(options.profile)
     else:

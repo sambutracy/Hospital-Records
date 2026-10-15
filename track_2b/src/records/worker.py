@@ -72,7 +72,7 @@ def finish_failure(job_id,token,code,state='failed'):
         GenerationRun.objects.filter(job=job,state='processing').update(state='failed',finished_at=timezone.now())
 
 
-def process_one(job_id,token):
+def process_one(job_id,token,*,extract_only=False):
     run=None
     started=time.perf_counter()
     try:
@@ -110,6 +110,10 @@ def process_one(job_id,token):
                 extraction,_=TextExtraction.objects.get_or_create(source_version=version,defaults={
                     'workspace_id':job.workspace_id,'pages':pages,'extractor_version':'pypdf-'+pypdf.__version__,
                     'text_sha256':hashlib.sha256(json.dumps(pages,sort_keys=True).encode()).hexdigest()})
+        if extract_only:
+            # Explicit administrative fixture preparation only. The source has
+            # real extracted text, but no AI metadata has been generated.
+            raise ProcessingError('text_extracted_manual_metadata','manual_review')
         try:
             config=configuration()
         except TrialError:

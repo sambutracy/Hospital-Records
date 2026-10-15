@@ -19,20 +19,28 @@ Local app search preselects ten sources by default (`ASSISTANT_SEARCH_SOURCE_LIM
 
 For the local text model, `LOCAL_ASSISTANT_MODE=extractive` is the default.
 Apertus selects evidence identifiers from at most 24 excerpts and 2,400 source
-text characters, with a 128-token output limit. Comfort expands only exact
+text characters, with a 64-token output limit. Comfort expands only exact
 immutable source passages and applies the usual source/citation validation.
 Search results and overviews identify these as selected source excerpts; they
 are not rewritten clinical summaries. This reduces input/output work while
 retaining explicit limits on coverage. `LOCAL_ASSISTANT_MODE=generative`
 reproduces the earlier local prose protocol; hosted Apertus behavior is unchanged.
 Changing the mode affects new requests, not saved results or patient metadata.
-Current search uses at most 16 excerpts and 1,800 source-text characters.
-Overview passage selection uses a lexical clinical-content prior and retains
-dated evidence, with a narrative fallback for unfamiliar vocabulary. This is
-partial selection: wrapped qualifications can be omitted at passage boundaries.
+Current search uses at most 16 excerpts and 1,800 source-text characters, narrowing
+positive lexical matches to five documents and two excerpts per document.
+The `local-evidence-v7` overview keeps adjacent PDF lines and displays longer
+passages in two contiguous citations without relaxing the 300-character bound.
+Metadata-only inputs receive an explicit limitation instead of a date-only draft.
+Selection is partial and surrounding qualifications may still be outside the
+captured context. The worker's private liveness heartbeat is reflected in the
+client, which offers manual refresh and polls pending requests every three seconds.
 Review the linked originals; these drafts are not complete clinical handoffs.
 For measured baseline failures and separately recorded follow-ups, see the
 [synthetic ecosystem report](../../data/ecosystem-v1/RESULTS-functional.md).
+New queue fixes, actual CPU timings and cache conditions are documented in the
+[performance follow-up](../../docs/apertus-performance.md). The server now uses
+six batch threads, flash attention and Q8 KV caches; model weights and the 16K
+context are unchanged. Historical timings require their original runtime settings.
 
 Serving uses the official llama.cpp `server-b11429` Linux amd64 image pinned to manifest digest `sha256:a7c742ec2070a17d715c02d4329c049a984c81c3234f9ab14bdb14e46b077317`. Model SHA-256 is `a037df8d87ff6caacee794ee85f55342f2152e0d359b7389033300c3bee5f299`, from repository revision `248ec68a63e219e3f061e4c946fc8a20d63b9975`. Identity remains **Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF**, a community Q4_K_M conversion of `swiss-ai/Apertus-v1.5-8B` through `andreasmartin/apertus-v1.5-8b-text`. It contains text capabilities only; it is not the unchanged official multimodal checkpoint.
 

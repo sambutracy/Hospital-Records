@@ -2,7 +2,7 @@
 
 This tooling is separate from the ordinary Comfort installation. It does not
 reset databases, rewrite patient identities, import SQL fixtures, or start a
-continuous model queue. Source documents enter the installed HTTP ingestion
+continuous model queue by default. Source documents enter the installed HTTP ingestion
 API after normal Keycloak authorization-code authentication and CSRF validation.
 
 ## Prerequisites and isolation
@@ -24,6 +24,22 @@ OIDC and production authorization settings are unchanged. This is a protocol
 integration test; it is not a browser usability or assistive-technology test.
 
 ## Prepare and inspect
+
+For hands-on use of the older port-8010 installation, explicitly enable its
+assistant-only worker:
+
+```powershell
+python track_2b/src/tools/ecosystem.py interactive
+```
+
+This processes saved user assistant requests, including already queued ones,
+without draining bulk metadata jobs. Before controlled model evaluation, stop
+`assistant-worker` with this project's Compose configuration and allow its stale
+heartbeat (at most 20 seconds) to clear. Evaluation refuses to create requests
+while that interactive worker is active. For the ordinary port-8000 client use
+the [client testing guide](client-testing.md); its worker starts with `make run`.
+The [performance follow-up](apertus-performance.md) covers protocol v7 and actual
+client checks separately from the frozen historical evaluation below.
 
 ```powershell
 python track_2b/src/tools/ecosystem.py prepare
@@ -141,14 +157,14 @@ python track_2b/src/tools/ecosystem.py evaluate --profile functional --live --ma
 ```
 
 The local text model defaults to `LOCAL_ASSISTANT_MODE=extractive`: at most 2,400
-source-text characters and 24 candidate excerpts, with at most 128 generated
+source-text characters and 24 candidate excerpts, with at most 64 generated
 tokens. Apertus chooses evidence IDs; the server expands only exact immutable
 source passages and runs the existing citation validator. Search still starts
 with authorized PostgreSQL candidate ranking. The UI labels the output as source
 excerpts. This is an extractive alternative, not proof of improved abstractive
 summarization. `LOCAL_ASSISTANT_MODE=generative` reproduces the earlier protocol;
 hosted-model behavior is unchanged. Both request modes remain in the report.
-The current protocol is `local-evidence-v4`: search is further bounded to 1,800
+The historical `local-evidence-v4` protocol further bounded search to 1,800
 text characters and 16 candidate excerpts; overviews use per-source selections
 for up to four input sources, a transparent lexical clinical-passage prior,
 dated evidence and a narrative fallback for unrecognized vocabulary. A mixed
@@ -167,9 +183,13 @@ flag a mismatch with a historical requested protocol and group results by the
 actual protocol. To repeat the original generative baseline, explicitly set
 `LOCAL_ASSISTANT_MODE=generative` in both app and worker before creating fresh
 requests. Historical raw CPU requests remain in private capture artifacts.
-The current run found a real limitation: an exact excerpt can end before a
-qualification on the next PDF line. Boundary screens flag this separately;
-contiguous statement selection and independent review remain priorities.
+Those historical runs found a real limitation: an exact excerpt could end before
+a qualification on the next PDF line. The current `local-evidence-v7` protocol
+retains adjacent lines and splits longer passages into two exact citations,
+displayed together. Search also narrows the model context to at most five relevant
+documents. See the [performance follow-up](apertus-performance.md) for fresh
+development results, cache statistics and remaining coverage limits. Historical
+evaluation files are unchanged; independent review remains necessary.
 Ground truth is authored independently or comes from literal cited source spans;
 patient-reviewed metadata is not model ground truth. Review readiness means
 valid structure and source quotes, not clinical correctness.

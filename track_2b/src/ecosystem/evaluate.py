@@ -395,7 +395,7 @@ def dispatch(ids,kind,mode):
 
 @env.exclusive
 def process(profile,live=False,max_jobs=16):
-    env.guard();suite=run.load();state=run.ledger();patients,actors,docs=run.selected(suite,profile)
+    env.guard(controlled=True);suite=run.load();state=run.ledger();patients,actors,docs=run.selected(suite,profile)
     keys={p['id'] for p in patients+actors};clients=clients_for(keys,state);jobs=[];job_docs={}
     try:
         accepted=next((r for r in state['operations'].get('P07:contribution-flow',[]) if r['state']=='accepted'),None)
@@ -457,7 +457,7 @@ def runtime_failure_gate(result):
 
 @env.exclusive
 def evaluate(profile,live=False,max_jobs=16,case_ids=None):
-    env.guard();suite=run.load();cases=case_manifest(suite);state=run.ledger();people,_,selected=run.selected(suite,profile)
+    env.guard(controlled=True);suite=run.load();cases=case_manifest(suite);state=run.ledger();people,_,selected=run.selected(suite,profile)
     eligible={p['id'] for p in people};selected_ids={d['id'] for d in selected}
     selected_ids.update(d['id'] for d in suite['auxiliary_documents'] if d['patient'] in eligible and d['id'] in state['documents'])
     clients=clients_for(eligible,state)
