@@ -83,6 +83,53 @@ class CareHistory(WorkspaceModel):
         ]
 
 
+class JournalEvent(PatientCareNote):
+    """Private patient observations; never inferred diagnoses or shared by association."""
+    category = models.CharField(max_length=16)
+    description = models.CharField(max_length=2000)
+    occurrence = models.JSONField(default=unknown_care_date)
+    occurrence_time = models.TimeField(null=True)
+    timezone_name = models.CharField(max_length=64)
+    occurred_at = models.DateTimeField(null=True)
+    time_fold = models.PositiveSmallIntegerField(null=True)
+    severity = models.PositiveSmallIntegerField(null=True)
+    concern = models.ForeignKey(PatientHealthConcern, null=True, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    class Meta(PatientCareNote.Meta):
+        db_table = 'journal_events'
+        constraints = PatientCareNote.Meta.constraints + [
+            models.CheckConstraint(condition=Q(category__in=['note', 'symptom']), name='journal_category'),
+            models.CheckConstraint(condition=Q(severity__isnull=True) | Q(category='symptom', severity__lte=10), name='journal_symptom_severity'),
+            models.CheckConstraint(condition=Q(time_fold__isnull=True) | Q(time_fold__in=[0, 1]), name='journal_fold'),
+        ]
+        indexes = [models.Index(fields=['workspace', 'status', 'created_at', 'id'], name='journal_workspace_order')]
+
+
+class JournalHistory(WorkspaceModel):
+    event = models.ForeignKey(JournalEvent, on_delete=models.PROTECT, related_name='history')
+    revision = models.PositiveIntegerField()
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    snapshot = models.JSONField()
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'journal_history'
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.UniqueConstraint(fields=['event', 'revision'], name='journal_history_revision'),
+            models.CheckConstraint(condition=Q(revision__gt=0), name='journal_history_positive'),
+        ]
+
+
+class JournalDraft(PatientCareNote):
+    """One bounded, typed editor recovery draft per patient, never a published event."""
+    event = models.ForeignKey(JournalEvent, null=True, on_delete=models.PROTECT)
+    base_revision = models.PositiveIntegerField(default=0)
+    fields = models.JSONField()
+    class Meta(PatientCareNote.Meta):
+        db_table = 'journal_drafts'
+        constraints = PatientCareNote.Meta.constraints + [
+            models.UniqueConstraint(fields=['workspace'], name='journal_one_draft'),
+        ]
+
+
 class FacilitySearchCache(models.Model):
     key = models.CharField(max_length=64,primary_key=True)
     results = models.JSONField()

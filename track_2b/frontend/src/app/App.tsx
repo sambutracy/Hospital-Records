@@ -34,6 +34,7 @@ const Detail = lazy(() => import("../features/records/Detail"));
 const Consultation = lazy(() => import("../features/care/Consultation"));
 const CareHome = lazy(() => import("../features/care/CareHome"));
 const Relationships = lazy(() => import("../features/care/Relationships"));
+const Journal = lazy(() => import("../features/journal/Journal"));
 function ContextRoute() {
   const { workspaceId } = useParams();
   const session = useSession();
@@ -105,9 +106,14 @@ function Shell() {
             <select
               id="context"
               value={patient.id}
-              onChange={(event) =>
-                navigate(`/workspaces/${event.target.value}/home`)
-              }
+              onChange={(event) => {
+                if (
+                  window.dispatchEvent(
+                    new Event("comfort:leave-context", { cancelable: true }),
+                  )
+                )
+                  navigate(`/workspaces/${event.target.value}/home`);
+              }}
             >
               {session.contexts.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -122,7 +128,21 @@ function Shell() {
           <form
             method="post"
             action="/auth/logout/"
-            onSubmit={() => {
+            onSubmit={(event) => {
+              if (
+                !window.dispatchEvent(
+                  new Event("comfort:leave-context", { cancelable: true }),
+                )
+              ) {
+                if (
+                  !window.confirm(
+                    "Recent Journal changes have not been saved. Sign out and discard those unsaved changes? Your last acknowledged server draft will remain private.",
+                  )
+                ) {
+                  event.preventDefault();
+                  return;
+                }
+              }
               // Keep this native POST form connected until navigation starts.
               // Removing the whole session shell here can cancel form submission.
               cancelPrivateRequests(patient.workspace_id);
@@ -258,15 +278,7 @@ export default function App() {
         <Route path="care/team" element={<Relationships page="team" />} />
         <Route path="care/visits" element={<Consultation />} />
         <Route path="care/:packetId" element={<Consultation />} />
-        <Route
-          path="journal"
-          element={
-            <Pending title="Journal">
-              Symptoms, intake entries and optional menstrual information will
-              need new private event contracts before they can be saved here.
-            </Pending>
-          }
-        />
+        <Route path="journal" element={<Journal />} />
         <Route
           path="insights"
           element={

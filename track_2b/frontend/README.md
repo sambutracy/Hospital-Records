@@ -1,5 +1,20 @@
 # Comfort frontend — foundation and records
 
+## Daily Journal
+
+The integrated `/journal` route now supports private patient notes and symptoms,
+concern links, exact/partial dates, optional severity/time, daily and list views,
+correction history, archive/restore and private server recovery drafts. Typed
+APIs and PostgreSQL migrations extend the existing backend. Journal information
+is not automatically shared or sent to Apertus. Draft conflicts require explicit
+comparison; acknowledged server drafts survive sign-in changes, while recent
+unacknowledged writing has the recovery limits explained in the editor.
+
+See the [domain and API contract](../docs/journal-insights-implementation.md) and
+[implementation/verification report](../docs/journal-implementation-report.md).
+The current frontend suite passes 35 tests, including 11 Journal tests. The
+historical foundation and My Care validation below describes those earlier slices.
+
 This React + strict TypeScript + Vite application implements the foundation and first records slice from the 14 October product specification. Django remains the identity and authorization authority. The existing verification interfaces remain available by direct URL; their visual layout was not used as a design reference.
 
 ## Run and verify

@@ -4,8 +4,15 @@ from . import continuity_views as cv
 from identity import profile_views as pv
 from . import medication_views as mv
 from . import care_views as care
+from . import journal_views as journal
 
 urlpatterns=[
+    path('journal/',journal.entries,name='journal_entries'),
+    path('journal/draft/',journal.draft,name='journal_draft'),
+    path('journal/draft/discard/',journal.discard,name='journal_draft_discard'),
+    path('journal/<uuid:event_id>/',journal.entry,name='journal_entry'),
+    path('journal/<uuid:event_id>/status/',journal.status,name='journal_status'),
+    path('journal/<uuid:event_id>/history/',journal.history,name='journal_history'),
     path('care/<str:kind>/',care.entries,name='care_entries'),
     path('care/<str:kind>/<uuid:item_id>/',care.entry,name='care_entry'),
     path('care/<str:kind>/<uuid:item_id>/status/',care.status,name='care_entry_status'),

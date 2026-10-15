@@ -930,6 +930,111 @@ fieldset legend {
 .care-history dd {
   overflow-wrap: anywhere;
 }
+.journal-recovery {
+  display: flex;
+  gap: 20px;
+  padding: 24px;
+  margin-bottom: 28px;
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.journal-recovery > svg {
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+.journal-controls {
+  margin-bottom: 28px;
+}
+.journal-view-switch,
+.journal-day-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.journal-day-switch .field {
+  flex: 1;
+  min-width: 150px;
+  margin: 0;
+}
+.journal-entries {
+  display: grid;
+  gap: 20px;
+}
+.journal-entry {
+  border-left: 4px solid var(--color-primary);
+}
+.journal-entry-heading {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.journal-entry-heading .eyebrow {
+  margin: 0;
+}
+.journal-entry h2 {
+  margin: 16px 0;
+  font-size: 1.4rem;
+}
+.journal-private,
+.journal-recorded {
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
+.journal-writing {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.journal-optional {
+  margin: 24px 0;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 20px;
+}
+.journal-optional summary {
+  min-height: 46px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+.journal-draft-status {
+  color: var(--color-muted);
+}
+.journal-editor .actions {
+  margin-top: 20px;
+}
+.journal-history {
+  padding-left: 24px;
+}
+.journal-history li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.journal-conflict {
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 2px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+}
+.journal-pagination {
+  margin-top: 28px;
+  align-items: center;
+}
+@media (max-width: 640px) {
+  .journal-editor .actions .button {
+    width: 100%;
+  }
+  .journal-recovery {
+    padding: 18px;
+  }
+  .journal-entry-heading {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
 .care-fields .form-grid {
   margin: 16px 0;
 }

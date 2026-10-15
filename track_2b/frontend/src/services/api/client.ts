@@ -17,6 +17,17 @@ export class ApiError extends Error {
   }
 }
 export function messageFor(status: number, code = ""): string {
+  const journalMessages: Record<string, string> = {
+    journal_invalid_timezone:
+      "Enter a valid time zone, such as Africa/Nairobi or Europe/Zurich.",
+    journal_invalid_time: "Enter a valid local time, or leave it blank.",
+    journal_time_needs_day: "A time needs an exact occurrence date.",
+    journal_nonexistent_time:
+      "That local time was skipped when clocks changed. Correct the time or leave it blank.",
+    journal_ambiguous_time:
+      "That local time occurred twice when clocks changed. Choose its first or second occurrence under optional details.",
+  };
+  if (status === 400 && journalMessages[code]) return journalMessages[code];
   if (status === 401)
     return "Your session has ended. Sign in again to continue.";
   if (status === 403)
@@ -82,7 +93,20 @@ export async function api<T>(
       }
       if (response.status === 404)
         window.dispatchEvent(new Event("comfort:authority-check"));
-      throw new ApiError(response.status, "request_failed");
+      let code = "request_failed";
+      if (response.status === 400) {
+        try {
+          const value = await response.json();
+          if (
+            typeof value.error === "string" &&
+            value.error.startsWith("journal_")
+          )
+            code = value.error;
+        } catch {
+          /* Untrusted error bodies never replace the safe message. */
+        }
+      }
+      throw new ApiError(response.status, code);
     }
     try {
       const payload = await response.json();

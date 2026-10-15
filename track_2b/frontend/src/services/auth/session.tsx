@@ -126,6 +126,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         ) : (
           <>
             <Notice>Your information is hidden until you sign in.</Notice>
+            <p>Saved private Journal drafts can be resumed after signing in.</p>
             <form action="/auth/login/" method="post">
               <input
                 type="hidden"

@@ -1,0 +1,14 @@
+{
+  "version": "comfort-journal-v1",
+  "provenance": "Newly authored fictional patient observations; no clinical inference or source-record replacement.",
+  "license": "CDLA-Permissive-2.0",
+  "patient": "P02",
+  "concern": "Fictional Journal observations",
+  "entries": [
+    {"id":"J02-01","category":"note","description":"Fictional journal scenario: I would like to discuss what is documented in my records at my next appointment.","occurrence":{"precision":"day","year":2026,"month":10,"day":16},"time":null,"timezone":"Africa/Nairobi","fold":null,"severity":null},
+    {"id":"J02-02","category":"symptom","description":"Fictional journal scenario: I noticed a headache this afternoon. I have not recorded a suspected cause.","occurrence":{"precision":"day","year":2026,"month":10,"day":16},"time":"14:00","timezone":"Africa/Nairobi","fold":null,"severity":4},
+    {"id":"J02-03","category":"symptom","description":"Fictional retrospective observation: I remember a headache during this month but do not remember the day or severity.","occurrence":{"precision":"month","year":2026,"month":10,"day":null},"time":null,"timezone":"Africa/Nairobi","fold":null,"severity":null}
+  ],
+  "empty_patient": "P14",
+  "boundaries": ["No caregiver authority is created", "No prescription or actual intake is inferred", "No AI tasks or share grants are created", "P14 is inspected without writing entries"]
+}
