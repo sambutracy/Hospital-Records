@@ -5,8 +5,11 @@ from identity import profile_views as pv
 from . import medication_views as mv
 from . import care_views as care
 from . import journal_views as journal
+from . import insights_views as insights
 
 urlpatterns=[
+    path('insights/timeline/',insights.timeline,name='insights_timeline'),
+    path('insights/observations/',insights.observations,name='insights_observations'),
     path('journal/',journal.entries,name='journal_entries'),
     path('journal/draft/',journal.draft,name='journal_draft'),
     path('journal/draft/discard/',journal.discard,name='journal_draft_discard'),

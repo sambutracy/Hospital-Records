@@ -140,9 +140,12 @@ regression results are recorded in the implementation report after execution.
 
 ## Following slices
 
-Month/week calendars and date indicators; medication intake linked to existing
+The first unified timeline and deterministic observation-count slice is now
+documented in [Insights](insights-implementation.md). It does not introduce a
+new event store, new grants or automatic model context.
+
+Remaining work: month/week calendars and date indicators; medication intake linked to existing
 medications; wellbeing and explicitly enabled menstrual observations; optional
-original-record links; unified paginated timeline; deterministic trends with
-accessible tables; explicitly selected, versioned evidence for Apertus and care
+original-record links; further deterministic metrics; explicitly selected, versioned evidence for Apertus and care
 preparation. Granular Journal sharing, delegation and guardianship require
-separate authorization contracts. None is claimed by this first slice.
+separate authorization contracts. None is claimed by the current slices.

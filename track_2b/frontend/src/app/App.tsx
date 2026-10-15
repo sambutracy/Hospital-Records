@@ -35,6 +35,7 @@ const Consultation = lazy(() => import("../features/care/Consultation"));
 const CareHome = lazy(() => import("../features/care/CareHome"));
 const Relationships = lazy(() => import("../features/care/Relationships"));
 const Journal = lazy(() => import("../features/journal/Journal"));
+const Insights = lazy(() => import("../features/insights/Insights"));
 function ContextRoute() {
   const { workspaceId } = useParams();
   const session = useSession();
@@ -243,7 +244,7 @@ function Account() {
           Comfort journeys are built.
         </p>
         <div className="stack">
-          <Link to="../insights">Insights · in development</Link>
+          <Link to="../insights">Insights · your care timeline</Link>
           <a href={`/workspaces/${patient.id}/profile/`}>
             Personal profile and care circle{" "}
             <ArrowUpRight size={16} aria-hidden="true" />
@@ -279,15 +280,8 @@ export default function App() {
         <Route path="care/visits" element={<Consultation />} />
         <Route path="care/:packetId" element={<Consultation />} />
         <Route path="journal" element={<Journal />} />
-        <Route
-          path="insights"
-          element={
-            <Pending title="Insights">
-              A source-linked care timeline will be added after care events and
-              journal entries are available.
-            </Pending>
-          }
-        />
+        <Route path="journal/:eventId" element={<Journal />} />
+        <Route path="insights" element={<Insights />} />
         <Route path="account" element={<Account />} />
         <Route
           path="*"

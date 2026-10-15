@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -82,6 +82,7 @@ function History({ base, event }: { base: string; event: JournalEvent }) {
 }
 
 export default function Journal() {
+  const { eventId } = useParams();
   const patient = usePatient(),
     client = useQueryClient(),
     base = `/api/workspaces/${patient.workspace_id}/journal/`;
@@ -137,9 +138,20 @@ export default function Journal() {
   );
   const entries = useQuery({
     queryKey: [base, "list", params.toString()],
-    enabled: canManage && validRange,
+    enabled: canManage && validRange && !eventId,
     queryFn: ({ signal }) => api(base + "?" + params, listSchema, { signal }),
   });
+  const selectedEntry = useQuery({
+    queryKey: [base, "detail", eventId],
+    enabled: canManage && Boolean(eventId),
+    queryFn: ({ signal }) => api(base + eventId + "/", eventSchema, { signal }),
+  });
+  const displayed = eventId
+    ? selectedEntry.data
+      ? [selectedEntry.data]
+      : []
+    : entries.data?.items;
+  const displayQuery = eventId ? selectedEntry : entries;
   const refresh = () => {
     void client.invalidateQueries({ queryKey: [base] });
   };
@@ -206,10 +218,11 @@ export default function Journal() {
   return (
     <>
       <PageHeader
-        title="Journal"
+        title={eventId ? "Journal observation" : "Journal"}
         eyebrow="The days between appointments"
         action={
-          !editor && (
+          !editor &&
+          !eventId && (
             <Button
               isDisabled={!recovery.data || Boolean(recovery.data.draft)}
               onPress={() => {
@@ -225,6 +238,17 @@ export default function Journal() {
         A place for what you notice, how you feel, and what you want to
         remember.
       </PageHeader>
+      {eventId && (
+        <p>
+          <Link to={`/workspaces/${patient.workspace_id}/journal`}>
+            Back to Journal
+          </Link>{" "}
+          ·{" "}
+          <Link to={`/workspaces/${patient.workspace_id}/insights`}>
+            Back to Insights
+          </Link>
+        </p>
+      )}
       <div ref={feedback} tabIndex={-1}>
         {message && (
           <Notice live tone="success">
@@ -293,173 +317,179 @@ export default function Journal() {
               </div>
             </section>
           )}
-          <section
-            className="journal-controls panel"
-            aria-label="Journal navigation"
-          >
-            <div
-              className="journal-view-switch"
-              role="group"
-              aria-label="Journal view"
+          {!eventId && (
+            <section
+              className="journal-controls panel"
+              aria-label="Journal navigation"
             >
-              <Button
-                variant={view === "day" ? "primary" : "secondary"}
-                aria-pressed={view === "day"}
-                onPress={() => {
-                  setView("day");
-                  setPage(1);
-                }}
+              <div
+                className="journal-view-switch"
+                role="group"
+                aria-label="Journal view"
               >
-                <CalendarDays size={18} aria-hidden="true" /> Day
-              </Button>
-              <Button
-                variant={view === "list" ? "primary" : "secondary"}
-                aria-pressed={view === "list"}
-                onPress={() => {
-                  setView("list");
-                  setPage(1);
-                }}
-              >
-                <List size={18} aria-hidden="true" /> List
-              </Button>
-            </div>
-            {view === "day" ? (
-              <div className="journal-day-switch">
                 <Button
-                  variant="quiet"
-                  aria-label="Previous day"
-                  onPress={() => switchDay(-1)}
-                >
-                  <ChevronLeft aria-hidden="true" />
-                </Button>
-                <TextField
-                  id="journal-selected-day"
-                  label="Selected day"
-                  inputProps={{
-                    type: "date",
-                    value: day,
-                    required: true,
-                    onChange: filter(setDay),
-                  }}
-                />
-                <Button
-                  variant="quiet"
-                  aria-label="Next day"
-                  onPress={() => switchDay(1)}
-                >
-                  <ChevronRight aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="quiet"
+                  variant={view === "day" ? "primary" : "secondary"}
+                  aria-pressed={view === "day"}
                   onPress={() => {
-                    setDay(localDay());
+                    setView("day");
                     setPage(1);
                   }}
                 >
-                  Today
+                  <CalendarDays size={18} aria-hidden="true" /> Day
                 </Button>
-              </div>
-            ) : (
-              <div className="form-grid">
-                <TextField
-                  id="journal-from"
-                  label="From"
-                  inputProps={{
-                    type: "date",
-                    value: from,
-                    onChange: filter(setFrom),
-                  }}
-                />
-                <TextField
-                  id="journal-to"
-                  label="To"
-                  inputProps={{
-                    type: "date",
-                    value: to,
-                    onChange: filter(setTo),
-                  }}
-                />
-              </div>
-            )}
-            <div className="form-grid">
-              <SelectField
-                id="journal-filter-category"
-                label="Entry type"
-                options={[
-                  { value: "", label: "All types" },
-                  { value: "note", label: "Personal notes" },
-                  { value: "symptom", label: "Symptoms" },
-                ]}
-                selectProps={{ value: category, onChange: filter(setCategory) }}
-              />
-              <SelectField
-                id="journal-filter-concern"
-                label="Health concern"
-                options={[
-                  { value: "", label: "All concerns" },
-                  ...(concerns.data?.items ?? []).map((item) => ({
-                    value: item.id,
-                    label: item.values.title,
-                  })),
-                ]}
-                selectProps={{ value: concern, onChange: filter(setConcern) }}
-              />
-            </div>
-            {concerns.error && (
-              <Notice tone="warning">
-                Concern filters are unavailable. Notes can still be recorded
-                without a new concern link.
-              </Notice>
-            )}
-            <div className="care-filters">
-              <label className="care-checkbox">
-                <input
-                  type="checkbox"
-                  checked={archived}
-                  onChange={(event) => {
-                    setArchived(event.target.checked);
+                <Button
+                  variant={view === "list" ? "primary" : "secondary"}
+                  aria-pressed={view === "list"}
+                  onPress={() => {
+                    setView("list");
                     setPage(1);
                   }}
-                />{" "}
-                Show archived entries
-              </label>
-              {view === "list" && (
+                >
+                  <List size={18} aria-hidden="true" /> List
+                </Button>
+              </div>
+              {view === "day" ? (
+                <div className="journal-day-switch">
+                  <Button
+                    variant="quiet"
+                    aria-label="Previous day"
+                    onPress={() => switchDay(-1)}
+                  >
+                    <ChevronLeft aria-hidden="true" />
+                  </Button>
+                  <TextField
+                    id="journal-selected-day"
+                    label="Selected day"
+                    inputProps={{
+                      type: "date",
+                      value: day,
+                      required: true,
+                      onChange: filter(setDay),
+                    }}
+                  />
+                  <Button
+                    variant="quiet"
+                    aria-label="Next day"
+                    onPress={() => switchDay(1)}
+                  >
+                    <ChevronRight aria-hidden="true" />
+                  </Button>
+                  <Button
+                    variant="quiet"
+                    onPress={() => {
+                      setDay(localDay());
+                      setPage(1);
+                    }}
+                  >
+                    Today
+                  </Button>
+                </div>
+              ) : (
+                <div className="form-grid">
+                  <TextField
+                    id="journal-from"
+                    label="From"
+                    inputProps={{
+                      type: "date",
+                      value: from,
+                      onChange: filter(setFrom),
+                    }}
+                  />
+                  <TextField
+                    id="journal-to"
+                    label="To"
+                    inputProps={{
+                      type: "date",
+                      value: to,
+                      onChange: filter(setTo),
+                    }}
+                  />
+                </div>
+              )}
+              <div className="form-grid">
+                <SelectField
+                  id="journal-filter-category"
+                  label="Entry type"
+                  options={[
+                    { value: "", label: "All types" },
+                    { value: "note", label: "Personal notes" },
+                    { value: "symptom", label: "Symptoms" },
+                  ]}
+                  selectProps={{
+                    value: category,
+                    onChange: filter(setCategory),
+                  }}
+                />
+                <SelectField
+                  id="journal-filter-concern"
+                  label="Health concern"
+                  options={[
+                    { value: "", label: "All concerns" },
+                    ...(concerns.data?.items ?? []).map((item) => ({
+                      value: item.id,
+                      label: item.values.title,
+                    })),
+                  ]}
+                  selectProps={{ value: concern, onChange: filter(setConcern) }}
+                />
+              </div>
+              {concerns.error && (
+                <Notice tone="warning">
+                  Concern filters are unavailable. Notes can still be recorded
+                  without a new concern link.
+                </Notice>
+              )}
+              <div className="care-filters">
                 <label className="care-checkbox">
                   <input
                     type="checkbox"
-                    checked={undated}
+                    checked={archived}
                     onChange={(event) => {
-                      setUndated(event.target.checked);
+                      setArchived(event.target.checked);
                       setPage(1);
                     }}
                   />{" "}
-                  Include undated entries
+                  Show archived entries
                 </label>
-              )}
-            </div>
-            <p className="care-access">
-              Your entries stay private. Adding a concern does not share them
-              with anyone.
-            </p>
-          </section>
-          {!validRange && (
+                {view === "list" && (
+                  <label className="care-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={undated}
+                      onChange={(event) => {
+                        setUndated(event.target.checked);
+                        setPage(1);
+                      }}
+                    />{" "}
+                    Include undated entries
+                  </label>
+                )}
+              </div>
+              <p className="care-access">
+                Your entries stay private. Adding a concern does not share them
+                with anyone.
+              </p>
+            </section>
+          )}
+          {!eventId && !validRange && (
             <Notice tone="error">Choose a valid start and end date.</Notice>
           )}
-          {entries.isLoading && <Loading>Opening your Journal…</Loading>}
-          {entries.error && (
+          {displayQuery.isLoading && <Loading>Opening your Journal…</Loading>}
+          {displayQuery.error && (
             <Notice tone="error">
-              {entries.error.message} Choose a range of up to 366 days.{" "}
+              {displayQuery.error.message}{" "}
+              {!eventId && "Choose a range of up to 366 days."}{" "}
               <Button
                 variant="quiet"
                 onPress={() => {
-                  void entries.refetch();
+                  void displayQuery.refetch();
                 }}
               >
                 Retry
               </Button>
             </Notice>
           )}
-          {entries.data?.items.length === 0 && (
+          {!eventId && entries.data?.items.length === 0 && (
             <EmptyState
               title={
                 archived
@@ -473,7 +503,7 @@ export default function Journal() {
             </EmptyState>
           )}
           <div className="journal-entries" aria-label="Journal entries">
-            {entries.data?.items.map((event) => (
+            {displayed?.map((event) => (
               <article
                 key={event.id}
                 className="panel journal-entry"
@@ -509,7 +539,9 @@ export default function Journal() {
                 {event.values.concern_id && (
                   <p>
                     Associated with{" "}
-                    <Link to="../care/concerns">
+                    <Link
+                      to={`/workspaces/${patient.workspace_id}/care/concerns`}
+                    >
                       {concerns.data?.items.find(
                         (c) => c.id === event.values.concern_id,
                       )?.values.title ?? "saved health concern"}
@@ -571,7 +603,7 @@ export default function Journal() {
               </article>
             ))}
           </div>
-          {entries.data && (
+          {!eventId && entries.data && (
             <nav
               className="actions journal-pagination"
               aria-label="Journal pages"
