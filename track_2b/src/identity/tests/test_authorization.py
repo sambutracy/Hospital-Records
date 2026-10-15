@@ -1,4 +1,5 @@
 import time
+import re
 import uuid
 from datetime import timedelta
 from django.contrib.auth import authenticate
@@ -61,7 +62,13 @@ class AuthorizationTests(IdentityFixture, TestCase):
         nonexistent = self.client.get(f'/workspaces/{uuid.uuid4()}/')
         self.assertEqual(forbidden.status_code, 404)
         self.assertEqual(nonexistent.status_code, 404)
-        self.assertNotContains(forbidden, 'Bob', status_code=404)
+        # Random CSRF masks can coincidentally contain a short display name.
+        # Compare both denial pages after removing only that unrelated token.
+        def without_csrf(response):
+            return re.sub(r'(<input\b(?=[^>]*name="csrfmiddlewaretoken")[^>]*value=")[^"]*(")',
+                r'\1csrf-token\2', response.content.decode())
+        self.assertNotIn('Bob', without_csrf(forbidden))
+        self.assertHTMLEqual(without_csrf(forbidden), without_csrf(nonexistent))
         self.assertTrue(AuditEvent.objects.filter(actor_user=self.alice, action='workspace.open', decision='deny').exists())
 
     def test_unknown_action_and_role_flags_do_not_grant_access(self):

@@ -1,0 +1,38 @@
+# Always combine with compose.yaml using --project-name comfort-ecosystem and the
+# generated .runtime/ecosystem/deployment/.env. Never start the ordinary worker.
+services:
+  keycloak:
+    volumes:
+      - ./.runtime/ecosystem/deployment/.runtime/continuity-realm.json:/opt/keycloak/data/import/continuity-realm.json:ro
+  app:
+    environment:
+      COMFORT_SYNTHETIC_ECOSYSTEM: comfort-ecosystem-v1
+      LLM_NAME: Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF
+      LLM_BASE_URL: http://inference:8080/v1
+      LLM_API_KEY_FILE: /run/secrets/apertus_key
+      ASSISTANT_SEARCH_SOURCE_LIMIT: "10"
+      FACILITY_SEARCH_URL: ""
+    volumes:
+      - ./.runtime/local-model/server.key:/run/secrets/apertus_key:ro
+      - ./data/ecosystem-v1:/ecosystem:ro
+    networks: [default, shared_inference]
+  worker:
+    profiles: [controlled-evaluation]
+    healthcheck:
+      disable: true
+    environment:
+      COMFORT_SYNTHETIC_ECOSYSTEM: comfort-ecosystem-v1
+      OIDC_ISSUER: http://127.0.0.1:8091/realms/continuity
+      LLM_NAME: Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF
+      LLM_BASE_URL: http://inference:8080/v1
+      LLM_API_KEY_FILE: /run/secrets/apertus_key
+      ASSISTANT_SEARCH_SOURCE_LIMIT: "10"
+    volumes:
+      - ./.runtime/local-model/server.key:/run/secrets/apertus_key:ro
+      - ./data/ecosystem-v1:/ecosystem:ro
+      - ./.runtime/ecosystem:/ecosystem-runtime
+    networks: [default, shared_inference]
+networks:
+  shared_inference:
+    external: true
+    name: health-continuity_model_runtime

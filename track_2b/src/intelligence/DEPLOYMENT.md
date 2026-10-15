@@ -17,6 +17,23 @@ For an isolated demonstration, set `COMPOSE_PROJECT_NAME`, `APP_PORT` and `KEYCL
 
 Local app search preselects ten sources by default (`ASSISTANT_SEARCH_SOURCE_LIMIT`, maximum 30). The result exposes actual coverage. Search output is capped at three short matches; overview output at four short items. These bounds keep the CPU prototype's generation cost finite; no interactive or production latency guarantee is made.
 
+For the local text model, `LOCAL_ASSISTANT_MODE=extractive` is the default.
+Apertus selects evidence identifiers from at most 24 excerpts and 2,400 source
+text characters, with a 128-token output limit. Comfort expands only exact
+immutable source passages and applies the usual source/citation validation.
+Search results and overviews identify these as selected source excerpts; they
+are not rewritten clinical summaries. This reduces input/output work while
+retaining explicit limits on coverage. `LOCAL_ASSISTANT_MODE=generative`
+reproduces the earlier local prose protocol; hosted Apertus behavior is unchanged.
+Changing the mode affects new requests, not saved results or patient metadata.
+Current search uses at most 16 excerpts and 1,800 source-text characters.
+Overview passage selection uses a lexical clinical-content prior and retains
+dated evidence, with a narrative fallback for unfamiliar vocabulary. This is
+partial selection: wrapped qualifications can be omitted at passage boundaries.
+Review the linked originals; these drafts are not complete clinical handoffs.
+For measured baseline failures and separately recorded follow-ups, see the
+[synthetic ecosystem report](../../data/ecosystem-v1/RESULTS-functional.md).
+
 Serving uses the official llama.cpp `server-b11429` Linux amd64 image pinned to manifest digest `sha256:a7c742ec2070a17d715c02d4329c049a984c81c3234f9ab14bdb14e46b077317`. Model SHA-256 is `a037df8d87ff6caacee794ee85f55342f2152e0d359b7389033300c3bee5f299`, from repository revision `248ec68a63e219e3f061e4c946fc8a20d63b9975`. Identity remains **Colby/apertus-v1.5-8b-text-Q4_K_M-GGUF**, a community Q4_K_M conversion of `swiss-ai/Apertus-v1.5-8B` through `andreasmartin/apertus-v1.5-8b-text`. It contains text capabilities only; it is not the unchanged official multimodal checkpoint.
 
 The server runs as UID 10001 with read-only weights/root filesystem, no published model port, dropped capabilities and an internal Docker network. Only the app/worker/evaluation containers join that network. `LLM_API_KEY_FILE` supplies a private key file rather than placing its value in the compose file. Existing hosted credentials are retained in ignored configuration but overridden for this local launch.

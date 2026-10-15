@@ -1,0 +1,596 @@
+{
+  "version": "comfort-ecosystem-evaluation-v4",
+  "population_sha256": "3daf7b21ba9184009bc069afcbc6ba80525eba3380636b761fba8e57c6fb6fe4",
+  "cases": [
+    {
+      "id": "metadata-P01-X-001",
+      "kind": "metadata",
+      "patient": "P01",
+      "sources": [
+        "P01-X-001"
+      ],
+      "expected": {
+        "document_type": "lab_report",
+        "document_date": {
+          "precision": "day",
+          "year": 2026,
+          "month": 3,
+          "day": 1
+        },
+        "facility_name": "Fictional Comfort Test Clinic"
+      },
+      "expected_evidence": "Authored representation labels and original authored source text, page 1.",
+      "unacceptable": [
+        "invented dates",
+        "prescription interpreted as use"
+      ],
+      "clinical_validation": false
+    },
+    {
+      "id": "metadata-P01-X-002",
+      "kind": "metadata",
+      "patient": "P01",
+      "sources": [
+        "P01-X-002"
+      ],
+      "expected": {
+        "document_type": "prescription",
+        "document_date": {
+          "precision": "day",
+          "year": 2026,
+          "month": 3,
+          "day": 2
+        },
+        "facility_name": "Fictional Comfort Test Clinic"
+      },
+      "expected_evidence": "Authored representation labels and original authored source text, page 1.",
+      "unacceptable": [
+        "invented dates",
+        "prescription interpreted as use"
+      ],
+      "clinical_validation": false
+    },
+    {
+      "id": "metadata-P15-X-008",
+      "kind": "metadata",
+      "patient": "P15",
+      "sources": [
+        "P15-X-008"
+      ],
+      "expected": {
+        "document_type": "consultation_note",
+        "document_date": {
+          "precision": "year",
+          "year": 2025,
+          "month": null,
+          "day": null
+        },
+        "facility_name": "Fictional Comfort Test Clinic"
+      },
+      "expected_evidence": "Authored representation labels and original authored source text, page 1.",
+      "unacceptable": [
+        "invented dates",
+        "prescription interpreted as use"
+      ],
+      "clinical_validation": false
+    },
+    {
+      "id": "metadata-P15-X-009",
+      "kind": "metadata",
+      "patient": "P15",
+      "sources": [
+        "P15-X-009"
+      ],
+      "expected": {
+        "document_type": "consultation_note",
+        "document_date": {
+          "precision": "unknown",
+          "year": null,
+          "month": null,
+          "day": null
+        },
+        "facility_name": "Fictional Comfort Test Clinic"
+      },
+      "expected_evidence": "Authored representation labels and original authored source text, page 1.",
+      "unacceptable": [
+        "invented dates",
+        "prescription interpreted as use"
+      ],
+      "clinical_validation": false
+    },
+    {
+      "id": "q01",
+      "kind": "search",
+      "patient": "P01",
+      "query": "Medicine Q",
+      "relevant": [
+        "P01-X-002"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P01-X-002",
+          "page": 1,
+          "quote": "Medicine Q 5 mg was prescribed. Whether it was taken is unknown."
+        }
+      ],
+      "label_method": "Authored fact references / literal source-span screen, independent of Apertus; not a clinical relevance gold standard",
+      "required_uncertainty": "Finding a document is not confirmation of a diagnosis; omitted contexts do not establish absence."
+    },
+    {
+      "id": "q02",
+      "kind": "search",
+      "patient": "P02",
+      "query": "Find diabetes records",
+      "relevant": [
+        "P02-N-4694823c-2c48-4546-b22d-e90496905508",
+        "P02-N-6b819414-95a3-46fc-b77d-17292d1403c7"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P02-N-4694823c-2c48-4546-b22d-e90496905508",
+          "page": 1,
+          "quote": " and osteoarthritis\n- Father had type 2 diabetes and HLD\n\nOn Examination\n- Patient appeared comfortable at"
+        },
+        {
+          "document": "P02-N-6b819414-95a3-46fc-b77d-17292d1403c7",
+          "page": 1,
+          "quote": " and osteoarthritis\n- Father had type 2 diabetes and HLD\n\nOn Examination\n- Patient appeared comfortable at"
+        }
+      ],
+      "label_method": "Authored fact references / literal source-span screen, independent of Apertus; not a clinical relevance gold standard",
+      "required_uncertainty": "Finding a document is not confirmation of a diagnosis; omitted contexts do not establish absence."
+    },
+    {
+      "id": "q03",
+      "kind": "search",
+      "patient": "P13",
+      "query": "EVAL-OLDER-000",
+      "relevant": [
+        "P13-X-001"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P13-X-001",
+          "page": 1,
+          "quote": " added. Capacity-test continuity marker EVAL-OLDER-000."
+        }
+      ],
+      "label_method": "Authored fact references / literal source-span screen, independent of Apertus; not a clinical relevance gold standard",
+      "required_uncertainty": "Finding a document is not confirmation of a diagnosis; omitted contexts do not establish absence."
+    },
+    {
+      "id": "q04",
+      "kind": "search",
+      "patient": "P15",
+      "query": "Medicine Z",
+      "relevant": [
+        "P15-X-001",
+        "P15-X-002",
+        "P15-X-007"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P15-X-001",
+          "page": 1,
+          "quote": "Historical prescription: Medicine Z 10 mg prescribed. Prescription is not evidence of use."
+        },
+        {
+          "document": "P15-X-002",
+          "page": 1,
+          "quote": "Later patient report: Medicine Z is not being taken. This does not rewrite the old prescript"
+        },
+        {
+          "document": "P15-X-007",
+          "page": 1,
+          "quote": "Another historical source says Medicine Z 20 mg prescribed. This conflicts with the 10 mg prescriptio"
+        }
+      ],
+      "label_method": "Authored fact references / literal source-span screen, independent of Apertus; not a clinical relevance gold standard",
+      "required_uncertainty": "Finding a document is not confirmation of a diagnosis; omitted contexts do not establish absence."
+    },
+    {
+      "id": "q05",
+      "kind": "search",
+      "patient": "P15",
+      "query": "no history of asthma",
+      "relevant": [
+        "P15-X-006"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P15-X-006",
+          "page": 1,
+          "quote": "The source explicitly states: no history of asthma. Do not convert this negation into an asthma diagnosis."
+        }
+      ],
+      "label_method": "Authored fact references / literal source-span screen, independent of Apertus; not a clinical relevance gold standard",
+      "required_uncertainty": "Finding a document is not confirmation of a diagnosis; omitted contexts do not establish absence."
+    },
+    {
+      "id": "q06",
+      "kind": "search",
+      "patient": "P15",
+      "query": "cardiac transplant in 2050",
+      "relevant": [],
+      "expected_evidence": [],
+      "label_method": "Authored fact references / literal source-span screen, independent of Apertus; not a clinical relevance gold standard",
+      "required_uncertainty": "Finding a document is not confirmation of a diagnosis; omitted contexts do not establish absence."
+    },
+    {
+      "id": "o01",
+      "kind": "packet_overview",
+      "patient": "P01",
+      "sources": [
+        "P01-X-001",
+        "P01-X-002"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P01-X-001",
+          "page": 1,
+          "text_path": "text/P01-X-001.txt"
+        },
+        {
+          "document": "P01-X-002",
+          "page": 1,
+          "text_path": "text/P01-X-002.txt"
+        }
+      ],
+      "required_any": [
+        [
+          "12.1"
+        ],
+        [
+          "g/dL"
+        ],
+        [
+          "prescrib",
+          "unknown",
+          "whether"
+        ]
+      ],
+      "forbidden": [
+        "currently takes Medicine Q"
+      ],
+      "expected_access": "private selected-version packet only",
+      "semantic_review": "Human entailment review required; phrase/quote validity is insufficient."
+    },
+    {
+      "id": "o02",
+      "kind": "packet_overview",
+      "patient": "P15",
+      "sources": [
+        "P15-X-001",
+        "P15-X-002",
+        "P15-X-007"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P15-X-001",
+          "page": 1,
+          "text_path": "text/P15-X-001.txt"
+        },
+        {
+          "document": "P15-X-002",
+          "page": 1,
+          "text_path": "text/P15-X-002.txt"
+        },
+        {
+          "document": "P15-X-007",
+          "page": 1,
+          "text_path": "text/P15-X-007.txt"
+        }
+      ],
+      "required_any": [
+        [
+          "10"
+        ],
+        [
+          "20"
+        ],
+        [
+          "not tak",
+          "non-use",
+          "not being taken",
+          "not taking"
+        ],
+        [
+          "conflict",
+          "unresolved",
+          "differ"
+        ]
+      ],
+      "forbidden": [
+        "currently takes Medicine Z"
+      ],
+      "expected_access": "private selected-version packet only",
+      "semantic_review": "Human entailment review required; phrase/quote validity is insufficient."
+    },
+    {
+      "id": "o03",
+      "kind": "packet_overview",
+      "patient": "P15",
+      "sources": [
+        "P15-X-003",
+        "P15-X-004",
+        "P15-X-006"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P15-X-003",
+          "page": 1,
+          "text_path": "text/P15-X-003.txt"
+        },
+        {
+          "document": "P15-X-004",
+          "page": 1,
+          "text_path": "text/P15-X-004.txt"
+        },
+        {
+          "document": "P15-X-006",
+          "page": 1,
+          "text_path": "text/P15-X-006.txt"
+        }
+      ],
+      "required_any": [
+        [
+          "suspect",
+          "unconfirm"
+        ],
+        [
+          "unknown"
+        ],
+        [
+          "no history",
+          "negat",
+          "denies"
+        ]
+      ],
+      "forbidden": [
+        "confirmed asthma",
+        "no allergies"
+      ],
+      "expected_access": "private selected-version packet only",
+      "semantic_review": "Human entailment review required; phrase/quote validity is insufficient."
+    },
+    {
+      "id": "q07",
+      "kind": "search",
+      "patient": "P11",
+      "query": "Find records mentioning BP",
+      "relevant": [
+        "P11-N-3b03a991-1fd3-46c9-be46-6dca34bd4c57",
+        "P11-N-aa76cf69-78b8-4d7e-8fcf-09a18444cc14",
+        "P11-N-d768df45-65c5-418f-ac81-fb299e30e2d8",
+        "P11-N-2f41615b-1cbd-4b38-8683-215520ac05c5"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P11-N-3b03a991-1fd3-46c9-be46-6dca34bd4c57",
+          "page": 2,
+          "quote": "BP 132/84"
+        },
+        {
+          "document": "P11-N-aa76cf69-78b8-4d7e-8fcf-09a18444cc14",
+          "page": 2,
+          "quote": "BP 142/86"
+        },
+        {
+          "document": "P11-N-d768df45-65c5-418f-ac81-fb299e30e2d8",
+          "page": 1,
+          "quote": "BP 132/78"
+        },
+        {
+          "document": "P11-N-2f41615b-1cbd-4b38-8683-215520ac05c5",
+          "page": 1,
+          "quote": "BP: 128/78"
+        }
+      ],
+      "label_method": "Literal whole-word BP in independently inspected notes; no inferred clinical meaning",
+      "required_uncertainty": "Retrieval does not establish diagnosis or resolve abbreviations."
+    },
+    {
+      "id": "o04",
+      "kind": "packet_overview",
+      "patient": "P10",
+      "sources": [
+        "P10-B-01",
+        "P10-B-04"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P10-B-01",
+          "page": 1,
+          "quote": "The associated entry identifies Dr. Danuta Little as the clinician and"
+        },
+        {
+          "document": "P10-B-01",
+          "page": 1,
+          "quote": "QUICK CARE CLINIC as the facility."
+        },
+        {
+          "document": "P10-B-04",
+          "page": 1,
+          "quote": "Naproxen sodium 220 MG Oral Tablet"
+        }
+      ],
+      "required_any": [
+        [
+          "salem"
+        ],
+        [
+          "quick care"
+        ],
+        [
+          "completed",
+          "historical",
+          "2021"
+        ]
+      ],
+      "forbidden": [
+        "currently takes naproxen"
+      ],
+      "expected_access": "private selected-version packet only",
+      "semantic_review": "Keep provider/date/source attribution and completed medication separate from present use."
+    },
+    {
+      "id": "o05",
+      "kind": "packet_overview",
+      "patient": "P01",
+      "sources": [
+        "P01-X-001",
+        "P01-X-002"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P01-X-001",
+          "page": 1,
+          "quote": "Specimen date: 2026-02-27."
+        },
+        {
+          "document": "P01-X-001",
+          "page": 1,
+          "quote": "Document date: 2026-03-01"
+        },
+        {
+          "document": "P01-X-002",
+          "page": 1,
+          "quote": "Whether it was taken is unknown."
+        }
+      ],
+      "required_any": [
+        [
+          "12.1"
+        ],
+        [
+          "g/dL"
+        ],
+        [
+          "prescrib"
+        ],
+        [
+          "unknown"
+        ],
+        [
+          "2026-02-27",
+          "27 feb",
+          "february 27"
+        ]
+      ],
+      "forbidden": [
+        "currently takes Medicine Q"
+      ],
+      "expected_access": "private selected-version packet only",
+      "semantic_review": "Specimen date differs from report date; prescription does not prove actual use."
+    },
+    {
+      "id": "q08",
+      "kind": "search",
+      "patient": "P13",
+      "query": "Find old notes stating no current medications reported",
+      "relevant": [
+        "P13-N-85834d83-cab8-440a-b4c4-c8f77e9bc658",
+        "P13-N-f191854f-167f-48e6-8311-84081c6fdb76"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P13-N-85834d83-cab8-440a-b4c4-c8f77e9bc658",
+          "page": 1,
+          "quote": "No current medications reported"
+        },
+        {
+          "document": "P13-N-f191854f-167f-48e6-8311-84081c6fdb76",
+          "page": 1,
+          "quote": "No current medications reported"
+        }
+      ],
+      "label_method": "Literal phrase in two oldest independently inspected source notes; neither is among the latest ten uploads",
+      "required_uncertainty": "Historical notes do not establish current medication use or absence."
+    },
+    {
+      "id": "cq01",
+      "kind": "search",
+      "patient": "P14",
+      "query": "follow-up conversation",
+      "relevant": [
+        "P14-AUX"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P14-AUX",
+          "page": 1,
+          "quote": "Patient reports a follow-up conversation."
+        }
+      ],
+      "label_method": "Authored literal reference; one-record context calibration",
+      "scope": "compact_control"
+    },
+    {
+      "id": "co01",
+      "kind": "packet_overview",
+      "patient": "P14",
+      "sources": [
+        "P14-AUX"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P14-AUX",
+          "page": 1,
+          "quote": "Patient reports a follow-up conversation."
+        }
+      ],
+      "required_any": [
+        [
+          "follow-up",
+          "follow up"
+        ],
+        [
+          "report"
+        ]
+      ],
+      "forbidden": [
+        "confirmed diagnosis"
+      ],
+      "scope": "compact_control"
+    },
+    {
+      "id": "co02",
+      "kind": "packet_overview",
+      "patient": "P01",
+      "sources": [
+        "P01-X-001"
+      ],
+      "expected_evidence": [
+        {
+          "document": "P01-X-001",
+          "page": 1,
+          "quote": "Haemoglobin: 12.1 g/dL."
+        }
+      ],
+      "required_any": [
+        [
+          "12.1"
+        ],
+        [
+          "g/dL"
+        ]
+      ],
+      "forbidden": [
+        "anaemia",
+        "anemia"
+      ],
+      "scope": "compact_control"
+    }
+  ],
+  "categories": [
+    "software_authorization",
+    "deterministic_fixture_checks",
+    "actual_model_evaluation",
+    "human_semantic_review",
+    "human_usability"
+  ],
+  "frozen_legacy_suites_modified": false,
+  "base_evaluation_sha256": "8dad45ca74b931aaf00c3e5ed39db573c55b3772826d4907b30a809c18b50623",
+  "base_v2_sha256": "2f39f4040b5a3c98eba6513cb169bbd7fb1296b337741c52f46fedff80f43526",
+  "base_v3_sha256": "0ab31693b07185d3c02c68c58f43fd708727845828f0fc7a16c14494e5f27f1c"
+}

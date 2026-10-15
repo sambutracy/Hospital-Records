@@ -44,3 +44,32 @@ evaluate-live:
 
 stop:
 	$(COMPOSE) down
+
+# Synthetic evaluation has its own database, realm and volumes. See the guide;
+# it reuses the prepared local Apertus inference service only.
+PYTHON ?= python
+PROFILE ?= smoke
+ECOSYSTEM := $(PYTHON) track_2b/src/tools/ecosystem.py
+.PHONY: ecosystem-prepare ecosystem-plan ecosystem-start ecosystem-seed ecosystem-verify ecosystem-workflows ecosystem-journeys ecosystem-extract ecosystem-model ecosystem-evaluate ecosystem-report
+ecosystem-prepare:
+	$(ECOSYSTEM) prepare
+ecosystem-plan:
+	$(ECOSYSTEM) plan --profile $(PROFILE)
+ecosystem-start:
+	$(ECOSYSTEM) start
+ecosystem-seed:
+	$(ECOSYSTEM) seed --profile $(PROFILE) --max-documents 64
+ecosystem-verify:
+	$(ECOSYSTEM) verify --profile $(PROFILE)
+ecosystem-workflows:
+	$(ECOSYSTEM) workflows --profile $(PROFILE)
+ecosystem-journeys:
+	$(ECOSYSTEM) journeys --profile $(PROFILE)
+ecosystem-extract:
+	$(ECOSYSTEM) process --profile $(PROFILE) --max-jobs 32
+ecosystem-model:
+	$(ECOSYSTEM) process --profile $(PROFILE) --live --max-jobs 4
+ecosystem-evaluate:
+	$(ECOSYSTEM) evaluate --profile $(PROFILE) --live --max-jobs 1
+ecosystem-report:
+	$(ECOSYSTEM) report --profile $(PROFILE)

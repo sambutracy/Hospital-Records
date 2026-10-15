@@ -69,6 +69,14 @@ export function TaskCard({ task }: { task: AssistantTask }) {
           history contains no relevant record.
         </p>
       )}
+      {result?.representation === "source_excerpts" && (
+        <p>
+          Apertus selected these exact source excerpts. Review the originals for
+          context; this is not a complete summary.
+          {result.evidence_coverage &&
+            ` Excerpts cite ${result.evidence_coverage.cited_sources} of ${result.evidence_coverage.selected_sources} selected source records.`}
+        </p>
+      )}
       {(result?.matches ?? []).map((match, index) => (
         <section key={index}>
           <p>{match.reason}</p>
@@ -84,7 +92,7 @@ export function TaskCard({ task }: { task: AssistantTask }) {
       ))}
       {(result?.items ?? []).map((item, index) => (
         <section key={index}>
-          <p>{item.text}</p>
+          {result?.representation !== "source_excerpts" && <p>{item.text}</p>}
           {item.citations.map((citation, i) => (
             <blockquote className="quote" key={i}>
               <p>{citation.quote}</p>

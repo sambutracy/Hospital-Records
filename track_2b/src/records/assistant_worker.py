@@ -1,6 +1,7 @@
 """Assistant generations run in the same bounded, serial processing child."""
 import json
 import time
+from django.conf import settings
 from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
@@ -96,21 +97,34 @@ def process_one(task_id,token):
             finish_failure(task_id,token,'model_configuration_pending','waiting_model')
             return 'waiting_model'
         prompt_version,prompt=PROMPTS[task.kind]
+        from . import local_evidence
+        local_plan=None
+        if config['model']==LOCAL_TEXT_MODEL and settings.LOCAL_ASSISTANT_MODE=='extractive' and task.kind in ('search','packet_overview'):
+            context,local_plan=local_evidence.plan(task,context)
+            if not local_plan:raise ValueError('No bounded evidence is available.')
+            prompt_version=task.kind+'-'+local_evidence.VERSION
+            prompt=local_evidence.prompt(task.kind,local_plan)
+        max_tokens=local_evidence.MAX_TOKENS if local_plan is not None else TOKEN_LIMITS[task.kind]
         constrained={**output_format(task,sources),'cache_prompt':True} if config['model']==LOCAL_TEXT_MODEL else {}
-        context_text=serialize_context(context)
+        if local_plan is not None:constrained={**local_evidence.output_format(local_plan,task.kind),'cache_prompt':True}
+        context_text=json.dumps(context,ensure_ascii=False,separators=(',',':')) if local_plan is not None else serialize_context(context)
         with transaction.atomic():
             task=active_task(task_id,token)
             task.model_name=config['model']
             task.prompt_version=prompt_version
-            task.configuration={'base_url':config['base'],'model_identity':config.get('identity',{}),'request_timeout_seconds':config.get('request_timeout',90),'temperature':0,'max_tokens':TOKEN_LIMITS[task.kind],
+            task.configuration={'base_url':config['base'],'model_identity':config.get('identity',{}),'request_timeout_seconds':config.get('request_timeout',90),'temperature':0,'max_tokens':max_tokens,
                 'output_format':constrained,'prompt_sha256':digest(prompt),'context_sha256':digest(context),
-                'context_serialization':CONTEXT_SERIALIZATION,
+                'context_serialization':local_evidence.VERSION if local_plan is not None else CONTEXT_SERIALIZATION,
                 'source_snapshots':[{'source_version_id':str(s.source_version_id),'source_sha256':s.source_version.sha256,'snapshot_sha256':s.snapshot_sha256} for s in sources],
                 'glossary_version':GLOSSARY_VERSION if task.kind=='explain_term' else None,
                 'glossary_sha256':digest(ENTRIES) if task.kind=='explain_term' else None}
+            if local_plan is not None:
+                task.configuration.update(generation_strategy='source_excerpt_selection',evidence_map=local_plan,
+                    text_characters=sum(len(e['text']) for e in local_plan.values()),max_excerpts=local_evidence.MAX_EXCERPTS)
+                if task.kind=='packet_overview':task.configuration['passage_strategy']='lexical-clinical-salience-v1; partial coverage; not a clinical judgment'
             task.save(update_fields=['model_name','prompt_version','configuration'])
         available_models(config)
-        response=request_json(config,'chat/completions',{'model':config['model'],'temperature':0,'max_tokens':TOKEN_LIMITS[task.kind],'stream':False,**constrained,
+        response=request_json(config,'chat/completions',{'model':config['model'],'temperature':0,'max_tokens':max_tokens,'stream':False,**constrained,
             'messages':[{'role':'system','content':prompt},{'role':'user','content':context_text}]})
         try:
             choice=response['choices'][0]
@@ -119,7 +133,13 @@ def process_one(task_id,token):
             payload=json.loads(choice['message']['content'])
             if config['key'] and config['key'] in json.dumps(payload):
                 raise ValueError('Invalid provider output.')
+            if local_plan is not None:payload=local_evidence.expand(task,payload,local_plan)
             result=validate_response(task,payload,sources)
+            if local_plan is not None:
+                result['representation']='source_excerpts'
+                result['evidence_coverage']={'selected_sources':len(sources),
+                    'model_context_sources':len({item['source_id'] for item in local_plan.values()}),
+                    'cited_sources':len({citation['source_version_id'] for item in result.get('items',result.get('matches',[])) for citation in item['citations']})}
         except (ValueError,TypeError,KeyError,IndexError):
             finish_failure(task_id,token,'invalid_model_output')
             return 'failed'

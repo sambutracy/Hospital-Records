@@ -81,6 +81,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Small explicit hospital searches only; use a self-hosted endpoint for sovereign operation.
 FACILITY_SEARCH_URL = os.getenv('FACILITY_SEARCH_URL','https://nominatim.openstreetmap.org')
 ASSISTANT_SEARCH_SOURCE_LIMIT = int(os.getenv('ASSISTANT_SEARCH_SOURCE_LIMIT','30'))
+LOCAL_ASSISTANT_MODE = os.getenv('LOCAL_ASSISTANT_MODE','extractive')
+if LOCAL_ASSISTANT_MODE not in ('extractive','generative'):
+    raise ImproperlyConfigured('LOCAL_ASSISTANT_MODE must be extractive or generative.')
 if not 1 <= ASSISTANT_SEARCH_SOURCE_LIMIT <= 30:
     raise ImproperlyConfigured('ASSISTANT_SEARCH_SOURCE_LIMIT must be between 1 and 30.')
 PRIVATE_STORAGE_ROOT = Path(os.getenv('PRIVATE_STORAGE_ROOT', str(BASE_DIR.parent / '.runtime' / 'documents')))

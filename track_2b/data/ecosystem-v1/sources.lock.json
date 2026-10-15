@@ -1,0 +1,152 @@
+{
+  "version": "comfort-ecosystem-v1",
+  "sources": {
+    "nhs": {
+      "repo": "NHSEDataScience/synthetic_clinical_notes",
+      "revision": "368a5bd2a55090a0bae3436f2823d606c5077158",
+      "license": "MIT",
+      "files": {
+        "README.md": "f36232b1c13933e900d3046e32c3692ab484a225df9335866ee021b58c7863b4",
+        "silver/patients.csv": "881daa1907b150545f96f3c0d6af1ae8363b0a81a56e14a80b55c49dcdb89853",
+        "silver/admissions.csv": "dbd6744ee99cddbcf67593939b10b405d8984a049a2ceeb5fd7b8250e62ad3fb",
+        "silver/synthetic_clinical_notes.csv": "2b33c63308c3dcdb6542d23b926acc570c235215eacc6975ac8b5879fca43299"
+      }
+    },
+    "documents": {
+      "repo": "morzel85/synthetic-medical-document-recognition-benchmark",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "license": "CC-BY-4.0",
+      "files": {
+        "README.md": "6fa5d14bb185e4fb3f3987ac50a029bb151bc78e49d599e204a7c0ed5c373d82"
+      }
+    }
+  },
+  "files": [
+    {
+      "dataset": "nhs",
+      "revision": "368a5bd2a55090a0bae3436f2823d606c5077158",
+      "path": "README.md",
+      "url": "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/368a5bd2a55090a0bae3436f2823d606c5077158/README.md",
+      "sha256": "f36232b1c13933e900d3046e32c3692ab484a225df9335866ee021b58c7863b4",
+      "bytes": 4270,
+      "license": "MIT"
+    },
+    {
+      "dataset": "nhs",
+      "revision": "368a5bd2a55090a0bae3436f2823d606c5077158",
+      "path": "silver/patients.csv",
+      "url": "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/368a5bd2a55090a0bae3436f2823d606c5077158/silver/patients.csv",
+      "sha256": "881daa1907b150545f96f3c0d6af1ae8363b0a81a56e14a80b55c49dcdb89853",
+      "bytes": 5958,
+      "license": "MIT"
+    },
+    {
+      "dataset": "nhs",
+      "revision": "368a5bd2a55090a0bae3436f2823d606c5077158",
+      "path": "silver/admissions.csv",
+      "url": "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/368a5bd2a55090a0bae3436f2823d606c5077158/silver/admissions.csv",
+      "sha256": "dbd6744ee99cddbcf67593939b10b405d8984a049a2ceeb5fd7b8250e62ad3fb",
+      "bytes": 19651,
+      "license": "MIT"
+    },
+    {
+      "dataset": "nhs",
+      "revision": "368a5bd2a55090a0bae3436f2823d606c5077158",
+      "path": "silver/synthetic_clinical_notes.csv",
+      "url": "https://huggingface.co/datasets/NHSEDataScience/synthetic_clinical_notes/resolve/368a5bd2a55090a0bae3436f2823d606c5077158/silver/synthetic_clinical_notes.csv",
+      "sha256": "2b33c63308c3dcdb6542d23b926acc570c235215eacc6975ac8b5879fca43299",
+      "bytes": 1761191,
+      "license": "MIT"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "README.md",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/README.md",
+      "sha256": "6fa5d14bb185e4fb3f3987ac50a029bb151bc78e49d599e204a7c0ed5c373d82",
+      "bytes": 21221,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_notes_type_1_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_notes_type_1_ver_1.pdf",
+      "sha256": "cae0fbbf1bc1a44d9b3de8336560460c4fccadcb25f1703126080be24157984c",
+      "bytes": 105856,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_notes_type_2_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_notes_type_2_ver_1.pdf",
+      "sha256": "16487f9d7fea692c7e548da013fa1d9ba6620479a5090a09a9acecc5c3829171",
+      "bytes": 130934,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_notes_type_3_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_notes_type_3_ver_1.pdf",
+      "sha256": "46330ebcb6d25600969e85cf8624188ed18225627515e7cd8b3509431273cacb",
+      "bytes": 95250,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_report_type_1_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_report_type_1_ver_1.pdf",
+      "sha256": "1bb581069ac28ef960e677131c2f58b82e4e12a170c8de82d0e4990f8be0e38e",
+      "bytes": 402775,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_report_type_2_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_report_type_2_ver_1.pdf",
+      "sha256": "a8e9a43a9566708aa35300b47cf2d668acb891082b5194b01dee619c0805dadf",
+      "bytes": 418439,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_report_type_3_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_report_type_3_ver_1.pdf",
+      "sha256": "0a450bf9997c9a7d4970d6152c34ba5416d852f8542d92aab98ec87a0d12818d",
+      "bytes": 262051,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_contact_info_type_1_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_contact_info_type_1_ver_1.pdf",
+      "sha256": "6128a18ba639e917e6e4b915c15953bac0f0cb77102f8b1c15d91987ee80ffbd",
+      "bytes": 80661,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/pdf/synthetic_Adam_Hirthe_1ce276e5_contact_info_type_1_dpi_300_photo_sta_img_ver_1.pdf",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/pdf/synthetic_Adam_Hirthe_1ce276e5_contact_info_type_1_dpi_300_photo_sta_img_ver_1.pdf",
+      "sha256": "60d3457f48500911d8152fd4b979ae5d6036afc5f6c21d4827db30f8a6cce098",
+      "bytes": 477940,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "dataset": "documents",
+      "revision": "906494ea091a54b81e6254f457fbffd219f2a8ef",
+      "path": "data/fhir/patients/synthetic_Adam_Hirthe_1ce276e5.json",
+      "url": "https://huggingface.co/datasets/morzel85/synthetic-medical-document-recognition-benchmark/resolve/906494ea091a54b81e6254f457fbffd219f2a8ef/data/fhir/patients/synthetic_Adam_Hirthe_1ce276e5.json",
+      "sha256": "e6501dc58d3d8ae8443a461ca9295dc96d06d23cf2297c3d83b5082e8732b227",
+      "bytes": 3321239,
+      "license": "CC-BY-4.0"
+    }
+  ]
+}

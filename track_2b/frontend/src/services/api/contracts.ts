@@ -176,6 +176,14 @@ export const taskSchema = z.object({
   result: z
     .object({
       abstained: z.boolean().optional(),
+      representation: z.enum(["source_excerpts"]).optional(),
+      evidence_coverage: z
+        .object({
+          selected_sources: z.number().int().nonnegative(),
+          model_context_sources: z.number().int().nonnegative(),
+          cited_sources: z.number().int().nonnegative(),
+        })
+        .optional(),
       matches: z
         .array(
           z.object({

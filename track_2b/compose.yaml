@@ -101,6 +101,7 @@ services:
       LLM_NAME: ${LLM_NAME:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      LOCAL_ASSISTANT_MODE: ${LOCAL_ASSISTANT_MODE:-extractive}
       PRIVATE_STORAGE_ROOT: /private-documents
     volumes:
       - private_documents:/private-documents
@@ -134,6 +135,7 @@ services:
       LLM_NAME: ${LLM_NAME:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      LOCAL_ASSISTANT_MODE: ${LOCAL_ASSISTANT_MODE:-extractive}
     volumes:
       - private_documents:/private-documents
     depends_on:

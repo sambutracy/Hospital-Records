@@ -1,0 +1,2 @@
+# Byte-level fixture hashes must survive checkout on both Windows and Linux.
+*.json -text

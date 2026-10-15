@@ -1,0 +1,4 @@
+# Optional host-side deterministic fixture authoring; application dependencies unchanged.
+reportlab==4.4.9
+pypdf==6.20.0
+requests==2.34.2

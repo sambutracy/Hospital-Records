@@ -364,6 +364,24 @@ class AssistantTests(TestCase):
         self.assertIn('term must occur',response.json()['error'])
         self.assertFalse(AssistantTask.objects.exists())
 
+    def test_local_cpu_selection_is_validated_and_retains_original_provenance(self):
+        task=self.create(parameters={'query':'CBC'})
+        token=self.claim(task)
+        config={'model':assistant_worker.LOCAL_TEXT_MODEL,'base':'http://inference:8080/v1','key':'test-local'}
+        def response(config,route,request):
+            context=json.loads(request['messages'][-1]['content'])
+            chunk=next(c for s in context['sources'] for c in s['chunks'] if 'CBC report' in c['text'])
+            return {'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'evidence':[chunk['chunk_id']],'abstained':False})}}]}
+        with override_settings(LOCAL_ASSISTANT_MODE='extractive'),patch('records.assistant_worker.configuration',return_value=config),patch('records.assistant_worker.available_models'),patch('records.assistant_worker.request_json',side_effect=response):
+            self.assertEqual(assistant_worker.process_one(task.pk,token),'completed')
+        task.refresh_from_db()
+        self.assertEqual(task.result['representation'],'source_excerpts')
+        self.assertEqual(task.result['matches'][0]['source_version_id'],str(self.alpha.pk))
+        self.assertEqual(task.result['matches'][0]['citations'][0]['source_sha256'],self.alpha.sha256)
+        self.assertEqual(task.configuration['generation_strategy'],'source_excerpt_selection')
+        self.assertLessEqual(task.configuration['max_tokens'],128)
+        self.assertNotIn('FOREIGN-PATIENT-RECORD',json.dumps(task.configuration))
+
     @skipUnless(connection.vendor=='postgresql','PostgreSQL assistant guards')
     def test_database_protects_snapshots_parameters_and_terminal_results(self):
         task=self.create()

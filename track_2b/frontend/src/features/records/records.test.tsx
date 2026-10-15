@@ -8,8 +8,58 @@ import { context, record, recordId, workspaceId } from "../../test/fixtures";
 import Detail from "./Detail";
 import Upload, { validateFile } from "./Upload";
 import { partialDate } from "./RecordCard";
+import { TaskCard } from "./Assistant";
+import { taskSchema } from "../../services/api/contracts";
 afterEach(() => vi.restoreAllMocks());
 describe("source fidelity and input handling", () => {
+  it("labels extractive model output and retains its source link", () => {
+    const task = taskSchema.parse({
+      id: recordId,
+      packet_id: null,
+      kind: "packet_overview",
+      state: "completed",
+      error_code: "",
+      coverage: { included_records: 1 },
+      sources: [],
+      result: {
+        representation: "source_excerpts",
+        evidence_coverage: {
+          selected_sources: 2,
+          model_context_sources: 2,
+          cited_sources: 1,
+        },
+        abstained: false,
+        items: [
+          {
+            text: "Medicine Q was prescribed. Whether taken is unknown.",
+            citations: [
+              {
+                quote: "Medicine Q was prescribed. Whether taken is unknown.",
+                download_url: `/api/workspaces/${workspaceId}/versions/${record.current_version.id}/original/`,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    render(
+      <ContextScope context={context}>
+        <TaskCard task={task} />
+      </ContextScope>,
+    );
+    expect(
+      screen.getByText(/Apertus selected these exact source excerpts/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Excerpts cite 1 of 2 selected source records/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Read the exact original" }),
+    ).toHaveAttribute(
+      "href",
+      `/api/workspaces/${workspaceId}/versions/${record.current_version.id}/original/`,
+    );
+  });
   it("keeps unknown and partial dates distinct without guessing a day", () => {
     expect(partialDate(null)).toBe("Date not reviewed");
     expect(

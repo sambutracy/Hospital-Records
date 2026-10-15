@@ -1,0 +1,50 @@
+{
+  "version": "comfort-unsupported-scenarios-v1",
+  "status": "proposed contracts only; no service operations or database rows fabricated",
+  "scenarios": [
+    {
+      "patient": "P05",
+      "capability": "optional menstrual and symptom journal",
+      "implemented": false,
+      "proposed_event": {
+        "event_type": "patient_reported_symptom",
+        "date": {"precision": "day", "year": 2026, "month": 3, "day": 1},
+        "reported_symptom": "cramps",
+        "menstrual_context": {"opted_in": true, "cycle_phase": "unknown"},
+        "visibility": "private_owner",
+        "clinical_validation": "none"
+      },
+      "acceptance_dependencies": ["separate optional opt-in", "dated immutable event provenance", "live workspace authorization", "correction history", "no pregnancy inference", "explicit sharing only"]
+    },
+    {
+      "patient": "P06",
+      "capability": "reported pregnancy and postpartum journal",
+      "implemented": false,
+      "proposed_event": {
+        "event_type": "patient_reported_postpartum_contact",
+        "date": {"precision": "day", "year": 2026, "month": 3, "day": 8},
+        "reported_delivery_date": {"precision": "day", "year": 2026, "month": 3, "day": 5},
+        "gestational_age": "unknown",
+        "visibility": "private_owner",
+        "clinical_validation": "none"
+      },
+      "acceptance_dependencies": ["patient-report attribution", "distinguish reported event and document dates", "no inferred neonatal findings", "no implicit recipient access"]
+    },
+    {
+      "patient": "P12",
+      "capability": "assisted or voice operation",
+      "implemented": false,
+      "proposed_journey": ["accessible sign-in", "explicit patient context", "private record search", "read source or accessible explanation", "separate confirmation for sharing"],
+      "acceptance_dependencies": ["keyboard and screen-reader testing with people", "speech privacy and consent", "review before consequential actions", "equivalent non-voice controls"],
+      "actual_usability_validation": "not performed"
+    },
+    {
+      "patients": ["P03", "P04"],
+      "actors": ["A05", "A06", "A07", "A08"],
+      "capability": "trusted caregiver or guardian acting context",
+      "implemented": false,
+      "current_behavior": "reported contact labels confer no capability; independent explicit packet grants are supported",
+      "acceptance_dependencies": ["verified authority and scope", "revocation and expiry policy", "auditable representative action", "appropriate capacity and consent workflow"]
+    }
+  ]
+}
