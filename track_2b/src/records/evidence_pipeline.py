@@ -11,11 +11,19 @@ import time
 from typing import Callable
 
 
-VERSION = 'comfort-evidence-pipeline-v1'
+VERSION = 'comfort-evidence-pipeline-v2'
 
 
 class ConfigurationPending(Exception):
     pass
+
+
+class OutputFailure(Exception):
+    """Safe failure classification; metadata contains no prompt or response text."""
+    def __init__(self, code, diagnostic=None):
+        self.code=code
+        self.diagnostic=diagnostic or {'stage':code}
+        super().__init__(code)
 
 
 @dataclass(frozen=True)
@@ -39,6 +47,7 @@ class TaskSpec:
     max_tokens: int
     max_evidence: int
     max_characters: int
+    source_schema: Callable | None = None
 
 
 _specs = {}
@@ -117,6 +126,7 @@ def invoke(kind,content,checkpoint,validate,record,reference=''):
     except TrialError:
         raise ConfigurationPending from None
     prompt=spec.system+reference
+    schema=spec.source_schema(content) if spec.source_schema is not None else spec.schema()
     setup=time.perf_counter()
     available_models(config)
     model_setup_seconds=time.perf_counter()-setup
@@ -124,18 +134,31 @@ def invoke(kind,content,checkpoint,validate,record,reference=''):
     provenance={'model':config['model'],'prompt_version':spec.prompt_version,
         'configuration':{'base_url':config['base'],'request_timeout_seconds':config.get('request_timeout',90),
             'temperature':0,'max_tokens':spec.max_tokens,'prompt_sha256':hashlib.sha256(prompt.encode()).hexdigest(),
+            'output_schema_sha256':hashlib.sha256(json.dumps(schema,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
             'pipeline_version':VERSION,'context_sha256':hashlib.sha256(content.encode()).hexdigest()}}
     record(provenance)
     checkpoint()
     start=time.perf_counter()
     response=request_json(config,'chat/completions',{'model':config['model'],'temperature':0,'max_tokens':spec.max_tokens,'stream':False,
-        'response_format':{'type':'json_schema','json_schema':{'name':'comfort_'+kind,'strict':True,'schema':spec.schema()}},
+        'response_format':{'type':'json_schema','json_schema':{'name':'comfort_'+kind,'strict':True,'schema':schema}},
         'messages':[{'role':'system','content':prompt},{'role':'user','content':content}]})
     inference_seconds=time.perf_counter()-start
-    if not isinstance(response,dict) or not response.get('choices') or response['choices'][0].get('finish_reason')!='stop':
-        raise ValueError('Incomplete model response.')
+    if not isinstance(response,dict) or not isinstance(response.get('choices'),list) or not response['choices'] or not isinstance(response['choices'][0],dict):
+        raise OutputFailure('model_response_invalid')
+    choice=response['choices'][0]
+    usage=response.get('usage',{})
+    completion=usage.get('completion_tokens') if isinstance(usage,dict) else None
+    limit_reached=type(completion) is int and completion>=spec.max_tokens
+    if choice.get('finish_reason')!='stop' or limit_reached:
+        diagnostic={'stage':'generation_incomplete','finish_reason':choice.get('finish_reason') if choice.get('finish_reason') in ('length','stop','content_filter','tool_calls') else 'other',
+            'max_tokens':spec.max_tokens}
+        if type(completion) is int and completion>=0: diagnostic['completion_tokens']=completion
+        raise OutputFailure('generation_incomplete',diagnostic)
     start=time.perf_counter()
-    decoded=json.loads(response['choices'][0]['message']['content'])
+    try:
+        decoded=json.loads(choice['message']['content'])
+    except (KeyError,TypeError,json.JSONDecodeError):
+        raise OutputFailure('invalid_model_json') from None
     result=validate(decoded)
     validation_seconds=time.perf_counter()-start
     checkpoint()

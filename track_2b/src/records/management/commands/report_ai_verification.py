@@ -24,5 +24,6 @@ class Command(BaseCommand):
                 'valid_result_present':task.state=='completed' and task.result is not None,
                 'queue_wait_seconds':(task.started_at-task.created_at).total_seconds() if task.started_at else None,
                 'total_worker_seconds':task.latency_seconds,'usage':{key:value for key,value in task.usage.items()
-                    if key in ('model_setup_seconds','inference_seconds','validation_seconds','prompt_tokens','completion_tokens','total_tokens')}})
+                    if key in ('model_setup_seconds','inference_seconds','validation_seconds','prompt_tokens','completion_tokens','total_tokens','failure_diagnostic',
+                        'normalization_method','field_abstentions','discarded_model_fields','source_normalized_fields')}})
         self.stdout.write(json.dumps({'results':results,'note':'Structural workflow evidence only; mock and real runs must be labelled by the operator.'},indent=2))

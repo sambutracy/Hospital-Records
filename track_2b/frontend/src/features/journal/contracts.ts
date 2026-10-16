@@ -60,7 +60,8 @@ export const draftSchema = z.object({
 });
 const aiEvidenceSchema = z.record(
   z.string(),
-  z.object({ quote: z.string(), start: z.number().int(), end: z.number().int() }),
+  z.object({ quote: z.string(), start: z.number().int(), end: z.number().int(),
+    origin: z.enum(["source_extraction", "apertus_quote"]).optional() }),
 );
 export const journalAIRequestSchema = z.object({
   id: uuid,

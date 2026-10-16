@@ -41,6 +41,24 @@ class EvidencePipelineTests(SimpleTestCase):
         self.assertNotIn('provider_debug',trace['usage'])
         self.assertGreaterEqual(checkpoint.call_count,3)
 
+    def test_source_schema_uses_only_exact_selected_content_and_records_only_its_hash(self):
+        source_schema=Mock(return_value={'type':'string','enum':['14:30']})
+        pipeline.register(pipeline.TaskSpec('contextual','test-v1','Do not infer a clock.',
+            lambda:{'type':'string'},100,1,200,source_schema=source_schema))
+        response={'choices':[{'finish_reason':'stop','message':{'content':'"14:30"'}}]}
+        record=Mock()
+        with patch('intelligence.trial.configuration',return_value={'model':'test','base':'local'}), \
+             patch('intelligence.trial.available_models'),patch('intelligence.trial.request_json',return_value=response) as infer:
+            result,trace=pipeline.invoke('contextual','Fictional note at 14:30.',Mock(),lambda value:value,record,
+                reference=' Trusted reference date: 2026-10-16')
+        source_schema.assert_called_once_with('Fictional note at 14:30.')
+        self.assertEqual(infer.call_args.args[2]['response_format']['json_schema']['schema'],
+            {'type':'string','enum':['14:30']})
+        self.assertEqual(result,'14:30')
+        self.assertEqual(len(trace['configuration']['output_schema_sha256']),64)
+        self.assertNotIn('14:30',json.dumps(record.call_args.args[0]))
+        self.assertNotIn('Fictional note',json.dumps(record.call_args.args[0]))
+
     def test_care_excerpt_scope_preserves_negation_subjects_and_uncertainty(self):
         evidence=(pipeline.Evidence('e1','My aunt has migraines. I have no headache today. Maybe I felt tired.'),)
         for quote,expected in [('migraines','My aunt has migraines.'),('headache today','I have no headache today.'),('I felt tired','Maybe I felt tired.')]:
@@ -56,5 +74,5 @@ class EvidencePipelineTests(SimpleTestCase):
     def test_invalid_or_truncated_output_is_not_retried(self):
         for response in ({'choices':[{'finish_reason':'length'}]}, {'choices':[{'finish_reason':'stop','message':{'content':'not JSON'}}]}):
             with patch('intelligence.trial.configuration',return_value={'model':'test','base':'local'}),patch('intelligence.trial.available_models'),patch('intelligence.trial.request_json',return_value=response) as infer:
-                with self.assertRaises(ValueError): pipeline.invoke('test','Fictional evidence',Mock(),lambda value:value,Mock())
+                with self.assertRaises(pipeline.OutputFailure): pipeline.invoke('test','Fictional evidence',Mock(),lambda value:value,Mock())
                 self.assertEqual(infer.call_count,1)

@@ -289,15 +289,16 @@ export default function Editor({
     try {
       const next = { ...latestFields.current };
       const proposed = aiRequest.proposal.fields;
-      if (aiSelected.category ?? true) next.category = proposed.category;
-      if (aiSelected.occurrence ?? true) {
+      const evidence = aiRequest.proposal.evidence;
+      if (evidence.category && (aiSelected.category ?? true)) next.category = proposed.category;
+      if (evidence.occurrence && (aiSelected.occurrence ?? true)) {
         next.precision = proposed.precision;
         next.year = proposed.year;
         next.month = proposed.month;
         next.day = proposed.day;
       }
-      if (aiSelected.time ?? true) { next.time = proposed.time; next.fold = ""; }
-      if (aiSelected.severity ?? true) next.severity = proposed.severity;
+      if (evidence.time && (aiSelected.time ?? true)) { next.time = proposed.time; next.fold = ""; }
+      if (evidence.severity && (aiSelected.severity ?? true)) next.severity = proposed.severity;
       if (next.category === "note") next.severity = "";
       const outcome = JSON.stringify(next) === JSON.stringify(proposed) ? "accepted" : "edited";
       const reviewed = await post(base + `ai/requests/${aiRequest.id}/`, journalAIRequestSchema, {
@@ -501,12 +502,14 @@ export default function Editor({
                 {aiRequest.stale ? <Notice tone="warning">Your draft changed after this request. Keep the current writing and ask Apertus to organize it again.</Notice> : null}
                 {aiRequest.expired ? <Notice tone="warning">This proposal has expired. Ask Apertus again to review a fresh result.</Notice> : null}
                 <p>Your original text is preserved: “{aiRequest.proposal.fields.description}”</p>
+                <p>Dates, clock times and numerical severity are checked against explicit text. Unsupported or conflicting suggestions stay unknown. Copying suggestions keeps your other draft fields.</p>
                 {aiRequest.proposal.ambiguities.length > 0 && <p>Needs your judgment: {aiRequest.proposal.ambiguities.join("; ")}</p>}
                 {Object.entries({ category: "Entry type", occurrence: "Date or time period", time: "Time", severity: "Severity" }).filter(([key]) => Boolean(aiRequest.proposal!.evidence[key])).map(([key, label]) => (
                   <label key={key} className="journal-ai-choice">
                     <input type="checkbox" checked={aiSelected[key] ?? true} onChange={(event) => setAiSelected((current) => ({ ...current, [key]: event.target.checked }))} disabled={aiRequest.stale || aiRequest.expired || aiBusy} />
                     Use suggested {label.toLowerCase()}: {key === "category" ? aiRequest.proposal!.fields.category : key === "occurrence" ? `${aiRequest.proposal!.fields.precision} ${aiRequest.proposal!.fields.year}${aiRequest.proposal!.fields.month ? `-${aiRequest.proposal!.fields.month}` : ""}${aiRequest.proposal!.fields.day ? `-${aiRequest.proposal!.fields.day}` : ""}` : key === "time" ? aiRequest.proposal!.fields.time : `${aiRequest.proposal!.fields.severity}/10`}
                     <span>Supported by “{aiRequest.proposal!.evidence[key].quote}”</span>
+                    {aiRequest.proposal!.evidence[key].origin === "source_extraction" && <span>Copied from your source text. Confirm this value before applying.</span>}
                   </label>
                 ))}
                 {aiRequest.proposal.unknown.length > 0 && <p>Not recorded because it was not clear: {aiRequest.proposal.unknown.join("; ")}</p>}

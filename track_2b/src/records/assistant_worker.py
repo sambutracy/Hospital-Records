@@ -58,15 +58,19 @@ def active_task(task_id,token):
     return task
 
 
-def finish_failure(task_id,token,code,state='failed'):
+def finish_failure(task_id,token,code,state='failed',diagnostic=None):
     with transaction.atomic():
         task=AssistantTask.objects.select_for_update().filter(pk=task_id,state='processing',lease_token=token).first()
         if not task:
             return
         task.state=state
         task.safe_error_code=code
+        if diagnostic is not None:
+            # Diagnostic keys/values are assembled from an allowlisted set by the
+            # domain worker; never place prompt, response, or provider text here.
+            task.usage={'failure_diagnostic':diagnostic}
         task.finished_at=timezone.now()
-        task.save(update_fields=['state','safe_error_code','finished_at'])
+        task.save(update_fields=['state','safe_error_code','finished_at']+(['usage'] if diagnostic is not None else []))
 
 
 def process_one(task_id,token):

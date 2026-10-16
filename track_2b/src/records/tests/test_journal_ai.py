@@ -1,11 +1,13 @@
+import hashlib
 import json
+from pathlib import Path
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest import skipUnless
 from unittest.mock import patch
 from django.db import connection, DatabaseError, IntegrityError, transaction
 from django.http import Http404
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 from records import journal, journal_ai
 from records.models import AssistantTask, JournalAIProposal, JournalAIReview, JournalAIRequest, JournalEvent, JournalDraft, JournalHistory
@@ -51,10 +53,14 @@ class JournalAITests(TestCase):
              patch('intelligence.trial.request_json',side_effect=lambda *args,**kwargs:self.model_response(item)) as infer:
             self.assertEqual(journal_ai.process_one(item.task_id,token),'completed')
         self.assertEqual(infer.call_args.args[2]['messages'][1]['content'],item.input_snapshot)
+        sent_schema=infer.call_args.args[2]['response_format']['json_schema']['schema']
+        self.assertTrue(all(branch['properties']['time']=={'type':'null'} for branch in sent_schema['anyOf']))
         item.refresh_from_db(); item.task.refresh_from_db()
         self.assertEqual(item.input_snapshot,'')
         self.assertEqual(item.task.result.keys(),{'proposal_id'})
         self.assertEqual(item.task.state,'completed')
+        self.assertEqual(item.task.configuration['output_schema_sha256'],hashlib.sha256(
+            json.dumps(sent_schema,sort_keys=True,separators=(',',':')).encode()).hexdigest())
         proposal=JournalAIProposal.objects.get(request=item)
         self.assertEqual(proposal.fields['category'],'symptom')
         self.assertEqual(proposal.fields['severity'],'6')
@@ -62,12 +68,81 @@ class JournalAITests(TestCase):
         self.assertEqual(JournalAIReview.objects.count(),0)
         self.assertEqual(JournalEvent.objects.count(),0)
 
-    def test_invalid_severity_evidence_is_rejected(self):
-        item,_=self.queued()
-        payload=self.model_response(item)['choices'][0]['message']['content']
-        decoded=json.loads(payload)
+    def test_frozen_dev03_partial_worker_result_can_be_reviewed_and_published_without_inventing_a_date(self):
+        fixture=Path(__file__).resolve().parents[3]/'data/journal-ai-v1/manifest.json'
+        source=next(case['text'] for case in json.loads(fixture.read_text(encoding='utf-8'))['cases'] if case['id']=='dev-03')
+        item,token=self.queued(source)
+        # Reproduce the operator's failure: an inferred date with no date quote.
+        decoded={'category':'symptom','occurrence':{'precision':'day','year':2026,'month':10,'day':16},
+            'severity':6,'time':None,'evidence':{'category':{'quote':'headache'}},
+            'unknown':[],'ambiguities':[],'abstained':False}
+        response={'choices':[{'finish_reason':'stop','message':{'content':json.dumps(decoded)}}],
+            'usage':{'completion_tokens':95}}
+        self.assertEqual(self.complete(item,token,lambda *args,**kwargs:response),'completed')
+        item.task.refresh_from_db()
+        self.assertIn('occurrence',item.task.usage['discarded_model_fields'])
+        self.assertNotIn(source,json.dumps(item.task.usage))
+        self.assertNotIn('six out of ten',json.dumps(item.task.usage))
+        route=self.base+f'journal/ai/requests/{item.pk}/'
+        proposal=self.client.get(route).json()['proposal']
+        self.assertEqual((proposal['fields']['precision'],proposal['fields']['severity']),('unknown','6'))
+        self.assertNotIn('occurrence',proposal['evidence'])
+        self.assertEqual(proposal['evidence']['severity']['quote'],'six out of ten')
+        self.assertEqual(JournalEvent.objects.count(),0)
+        accepted=self.client.post(route,json.dumps({'outcome':'accepted','fields':proposal['fields']}),content_type='application/json')
+        self.assertEqual(accepted.status_code,200,accepted.content)
+        draft=JournalDraft.objects.get(pk=item.draft_id)
+        self.assertEqual(draft.fields['description'],source)
+        self.assertEqual(JournalEvent.objects.count(),0)
+        values={'category':'symptom','description':source,'occurrence':{'precision':'unknown','year':None,'month':None,'day':None},
+            'time':None,'timezone':'Africa/Nairobi','fold':None,'severity':6,'concern_id':None}
+        published=self.client.post(self.base+'journal/',json.dumps({'values':values,'expected_revision':0,
+            'draft_revision':draft.revision}),content_type='application/json')
+        self.assertEqual(published.status_code,201,published.content)
+        event=JournalEvent.objects.get(pk=published.json()['id'])
+        self.assertEqual(JournalHistory.objects.get(event=event,revision=1).snapshot['description'],source)
+
+    def test_conflicting_severity_is_omitted_without_losing_the_reviewable_proposal(self):
+        item,token=self.queued()
+        response=self.model_response(item)
+        decoded=json.loads(response['choices'][0]['message']['content'])
         decoded['severity']=8
-        with self.assertRaises(ValueError): journal_ai.validate(decoded,item)
+        response['choices'][0]['message']['content']=json.dumps(decoded)
+        self.assertEqual(self.complete(item,token,lambda *args,**kwargs:response),'completed')
+        item.task.refresh_from_db()
+        proposal=JournalAIProposal.objects.get(request=item)
+        self.assertEqual(proposal.fields['severity'],'')
+        self.assertNotIn('severity',proposal.evidence)
+        self.assertIn({'field':'severity','reason':'model_source_disagreement'},item.task.usage['field_abstentions'])
+        self.assertEqual(JournalEvent.objects.count(),0)
+
+    def test_constrained_schema_requires_a_severity_quote_only_for_non_null_severity(self):
+        schema=journal_ai.output_schema()
+        self.assertEqual(len(schema['anyOf']),4)
+        for branch in schema['anyOf']:
+            evidence=branch['properties']['evidence']
+            scored=branch['properties']['severity']['type']=='integer'
+            timed=branch['properties']['time']['type']=='string'
+            self.assertFalse(branch['additionalProperties'])
+            self.assertFalse(evidence['additionalProperties'])
+            self.assertEqual(set(evidence['required']),{'category'} |
+                ({'severity'} if scored else set()) | ({'time'} if timed else set()))
+            self.assertEqual(set(evidence['properties']),{'category','occurrence'} |
+                ({'severity'} if scored else set()) | ({'time'} if timed else set()))
+            self.assertEqual(evidence['properties']['category']['required'],['quote'])
+            if scored: self.assertEqual(evidence['properties']['severity']['required'],['quote'])
+            if timed: self.assertIn('pattern',branch['properties']['time'])
+            self.assertEqual(branch['properties']['occurrence']['properties']['day']['type'],['integer','null'])
+
+    def test_semantically_required_category_citation_cannot_be_omitted(self):
+        item,_=self.queued('Fictional note: I had a headache yesterday.')
+        payload={'category':'symptom','occurrence':{'precision':'unknown','year':None,'month':None,'day':None},
+            'time':None,'severity':None,'evidence':{},'unknown':[],'ambiguities':[],'abstained':False}
+        with self.assertRaises(journal_ai.JournalOutputFailure) as failure:
+            journal_ai.validate(payload,item)
+        self.assertEqual(failure.exception.code,'citation_invalid')
+        self.assertEqual(failure.exception.diagnostic,
+            {'stage':'citation_invalid','field':'category','reason':'required_quote_missing'})
 
     def test_spelled_out_numeric_severity_is_supported_but_qualitative_intensity_is_not(self):
         item,_=self.queued()
@@ -77,7 +152,22 @@ class JournalAITests(TestCase):
             'unknown':[],'ambiguities':[],'abstained':False}
         self.assertEqual(journal_ai.validate(payload,item)['fields']['severity'],'6')
         payload['evidence']['severity']['quote']='very painful'
-        with self.assertRaises(ValueError): journal_ai.validate(payload,item)
+        partial=journal_ai.validate(payload,item)
+        self.assertEqual(partial['fields']['severity'],'')
+        self.assertIn({'field':'severity','reason':'quote_not_verified'},partial['field_abstentions'])
+
+    def test_part_of_day_without_clock_time_stays_unknown_and_model_uncertainty_is_preserved(self):
+        item,_=self.queued('Fictional note: The headache was six out of ten this morning.')
+        payload={'category':'symptom','occurrence':{'precision':'unknown','year':None,'month':None,'day':None},
+            'time':None,'severity':6,'evidence':{'category':{'quote':'headache'},
+                'severity':{'quote':'six out of ten'}},'unknown':['Exact time'],
+            'ambiguities':[],'abstained':False}
+        fields=journal_ai.validate(payload,item)['fields']
+        self.assertEqual((fields['precision'],fields['time'],fields['severity']),('unknown','','6'))
+        payload['time']='09:00'
+        partial=journal_ai.validate(payload,item)
+        self.assertEqual(partial['fields']['time'],'')
+        self.assertIn({'field':'time','reason':'model_uncertain'},partial['field_abstentions'])
 
     def test_named_month_and_year_preserve_partial_date_precision(self):
         item,_=self.queued('Fictional note: I remember a headache in October 2025, but not the day.')
@@ -87,13 +177,68 @@ class JournalAITests(TestCase):
         fields=journal_ai.validate(payload,item)['fields']
         self.assertEqual((fields['precision'],fields['year'],fields['month'],fields['day']),('month','2025','10',''))
 
+    def test_realistic_yesterday_sentence_quote_resolves_against_trusted_local_date(self):
+        text="I had a headache yesterday. I rated the pain 6/10, but I'm not sure what caused it."
+        item,token=self.queued(text)
+        expected_day=(item.reference_at.astimezone(__import__('zoneinfo').ZoneInfo('Africa/Nairobi')).date()-timedelta(days=1))
+        item.reference_timezone='Africa/Nairobi'
+        payload={'category':'symptom','occurrence':{'precision':'day','year':None,'month':None,'day':None},
+            'time':None,'severity':6,'evidence':{'category':{'quote':'headache'},
+                'occurrence':{'quote':'I had a headache yesterday.'},'severity':{'quote':'6/10'}},
+            'unknown':[],'ambiguities':['Cause is not stated.'],'abstained':False}
+        response={'choices':[{'finish_reason':'stop','message':{'content':json.dumps(payload)}}],
+            'usage':{'completion_tokens':95}}
+        with patch('intelligence.trial.configuration',return_value={'model':'swiss-ai/Apertus-v1.5-8B','base':'http://inference:8080/v1','request_timeout':90,'key':''}), \
+             patch('intelligence.trial.available_models'), patch('intelligence.trial.request_json',return_value=response):
+            self.assertEqual(journal_ai.process_one(item.task_id,token),'completed')
+        from records.models import JournalAIProposal
+        fields=JournalAIProposal.objects.get(request=item).fields
+        self.assertEqual((fields['precision'],fields['year'],fields['month'],fields['day']),('day',str(expected_day.year),str(expected_day.month),str(expected_day.day)))
+        self.assertEqual(fields['severity'],'6')
+        self.assertEqual(fields['description'],text)
+
+    def test_incomplete_generation_is_classified_without_model_text(self):
+        item,token=self.queued("Fictional note: I had a headache yesterday.")
+        response={'choices':[{'finish_reason':'length','message':{'content':'private raw response must not persist'}}],
+            'usage':{'completion_tokens':350}}
+        with patch('intelligence.trial.configuration',return_value={'model':'swiss-ai/Apertus-v1.5-8B','base':'http://inference:8080/v1','request_timeout':90,'key':''}), \
+             patch('intelligence.trial.available_models'), patch('intelligence.trial.request_json',return_value=response):
+            self.assertEqual(journal_ai.process_one(item.task_id,token),'failed')
+        item.task.refresh_from_db()
+        self.assertEqual(item.task.safe_error_code,'generation_incomplete')
+        self.assertEqual(item.task.usage['failure_diagnostic'],{'stage':'generation_incomplete','finish_reason':'length','max_tokens':350,'completion_tokens':350})
+        self.assertNotIn('private raw response must not persist',json.dumps(item.task.usage))
+
+    def test_malformed_json_and_wrong_quote_have_distinct_safe_failure_codes(self):
+        for response,expected in (({'choices':[{'finish_reason':'stop','message':{'content':'{broken'}}]},'invalid_model_json'),
+             ({'choices':[{'finish_reason':'stop','message':{'content':json.dumps({
+                 'category':'symptom','occurrence':{'precision':'unknown','year':None,'month':None,'day':None},
+                 'time':None,'severity':None,'evidence':{'category':{'quote':'not in source'}},
+                 'unknown':[],'ambiguities':[],'abstained':False})}}]},'citation_invalid')):
+            draft=self.saved_draft('Fictional note: I had a headache yesterday.')
+            item=journal_ai.create(self.alice,self.workspace.pk,draft.revision)
+            token='00000000-0000-0000-0000-000000000001'
+            AssistantTask.objects.filter(pk=item.task_id).update(state='processing',lease_token=token,lease_expires_at=timezone.now()+timedelta(minutes=5))
+            with patch('intelligence.trial.configuration',return_value={'model':'swiss-ai/Apertus-v1.5-8B','base':'http://inference:8080/v1','request_timeout':90,'key':''}), \
+                 patch('intelligence.trial.available_models'), patch('intelligence.trial.request_json',return_value=response):
+                self.assertEqual(journal_ai.process_one(item.task_id,token),'failed')
+            item.task.refresh_from_db()
+            self.assertEqual(item.task.safe_error_code,expected)
+            if expected=='citation_invalid':
+                self.assertEqual(item.task.usage['failure_diagnostic'],
+                    {'stage':'citation_invalid','field':'category','reason':'quote_not_in_source'})
+            self.assertNotIn('not in source',json.dumps(item.task.usage))
+            journal.discard_draft(self.alice,self.workspace.pk,JournalDraft.objects.get(pk=draft.pk).revision)
+
     def test_negated_severity_and_model_added_diagnosis_are_rejected(self):
         text='Fictional note: I did not rate the headache as six out of ten.'
         item,_=self.queued(text)
         payload={'category':'symptom','occurrence':{'precision':'unknown','year':None,'month':None,'day':None},
             'time':None,'severity':6,'evidence':{'category':{'quote':'headache'},'severity':{'quote':'six out of ten'}},
             'unknown':[],'ambiguities':[],'abstained':False}
-        with self.assertRaises(ValueError): journal_ai.validate(payload,item)
+        partial=journal_ai.validate(payload,item)
+        self.assertEqual(partial['fields']['severity'],'')
+        self.assertIn({'field':'severity','reason':'negated_source'},partial['field_abstentions'])
         payload['severity']=None
         payload['evidence'].pop('severity')
         payload['diagnosis']='migraine'
@@ -300,3 +445,71 @@ class JournalAITests(TestCase):
             self.test_authenticated_accept_publish_preserves_narrative_history_and_draft_identity()
         finally:
             with connection.cursor() as cursor: cursor.execute('RESET ROLE')
+
+
+class JournalOutputDiagnosticsTests(SimpleTestCase):
+    def test_source_schema_does_not_convert_a_part_of_day_into_a_clock(self):
+        schema=journal_ai.output_schema('Fictional note: The headache was six out of ten this morning.')
+        self.assertEqual(len(schema['anyOf']),2)
+        for branch in schema['anyOf']:
+            self.assertEqual(branch['properties']['time'],{'type':'null'})
+            self.assertNotIn('time',branch['properties']['evidence']['properties'])
+
+    def test_source_schema_keeps_all_explicit_clocks_as_candidates_with_null_available(self):
+        schema=journal_ai.output_schema('Fictional note: at 14:30 or 09:05; not a date 2026. Not 9:30 or 25:00.')
+        timed=[branch for branch in schema['anyOf'] if branch['properties']['time']['type']=='string']
+        self.assertEqual(len(timed),2)
+        for branch in timed:
+            self.assertEqual(branch['properties']['time']['enum'],['09:05','14:30'])
+            self.assertIn('time',branch['properties']['evidence']['required'])
+        self.assertTrue(any(branch['properties']['time']['type']=='null' for branch in schema['anyOf']))
+
+    def request_and_payload(self):
+        request=SimpleNamespace(input_snapshot='Fictional note: The headache was six out of ten on 2026-03-02 at 14:30.',
+            reference_timezone='UTC')
+        payload={'category':'symptom','occurrence':{'precision':'day','year':2026,'month':3,'day':2},
+            'severity':6,'time':None,'evidence':{'category':{'quote':'headache'},
+                'occurrence':{'quote':'2026-03-02'},'severity':{'quote':'six out of ten'}},'unknown':[],'ambiguities':[],'abstained':False}
+        return request,payload
+
+    def test_severity_failure_reasons_distinguish_type_scale_evidence_and_disagreement(self):
+        for change,reason in (
+            ({'severity':'6'},'unsupported_model_value'),
+            ({'severity':True},'unsupported_model_value'),
+            ({'severity':11},'unsupported_model_value'),
+            ({'evidence':{'category':{'quote':'headache'},'severity':{'quote':'headache'}}},'quote_does_not_support_field'),
+            ({'severity':7},'model_source_disagreement')):
+            with self.subTest(reason=reason):
+                request,payload=self.request_and_payload()
+                payload.update(change)
+                partial=journal_ai.validate(payload,request,{})
+                self.assertEqual(partial['fields']['severity'],'')
+                self.assertIn({'field':'severity','reason':reason},partial['field_abstentions'])
+        request,payload=self.request_and_payload()
+        self.assertEqual(journal_ai.validate(payload,request,{})['fields']['severity'],'6')
+
+    def test_time_failure_reasons_and_explicit_time_acceptance(self):
+        for clock,quote,reason in (('morning',None,'unsupported_model_value'),
+                ('09:00',None,'model_source_disagreement'),('09:00','14:30','model_source_disagreement')):
+            with self.subTest(reason=reason):
+                request,payload=self.request_and_payload()
+                payload['time']=clock
+                if quote is not None: payload['evidence']['time']={'quote':quote}
+                partial=journal_ai.validate(payload,request,{})
+                self.assertEqual(partial['fields']['time'],'')
+                self.assertIn({'field':'time','reason':reason},partial['field_abstentions'])
+        request,payload=self.request_and_payload()
+        payload['time']='14:30'; payload['evidence']['time']={'quote':'14:30'}
+        self.assertEqual(journal_ai.validate(payload,request,{})['fields']['time'],'14:30')
+
+    def test_negated_scale_abstains_with_content_free_reason(self):
+        request,payload=self.request_and_payload()
+        request.input_snapshot='Fictional note: I did not rate the headache as six out of ten.'
+        partial=journal_ai.validate(payload,request,{})
+        self.assertEqual(partial['fields']['severity'],'')
+        self.assertIn({'field':'severity','reason':'negated_source'},partial['field_abstentions'])
+
+    def test_diagnostic_allowlist_cannot_include_arbitrary_field_or_reason_text(self):
+        error=journal_ai.JournalOutputFailure('severity_unsupported',
+            field='fictional narrative fragment',reason='fictional provider response')
+        self.assertEqual(error.diagnostic,{'stage':'severity_unsupported'})

@@ -62,6 +62,7 @@ function setup(
     fail?: "conflict" | "network" | "draft-conflict";
     manage?: boolean;
     seconds?: number;
+    aiWarnings?: string[];
   } = {},
 ) {
   const stored = {
@@ -199,10 +200,10 @@ function setup(
           },
           evidence: {
             category: { quote: "Headache", start: 0, end: 8 },
-            severity: { quote: "6/10", start: 17, end: 21 },
+            severity: { quote: "6/10", start: 17, end: 21, origin: "source_extraction" },
           },
           unknown: ["Medication name"],
-          ambiguities: [],
+          ambiguities: options.aiWarnings ?? [],
           schema_version: "journal-proposal-v1",
           model: "Apertus v1.5 8B",
           generated_at: timestamp,
@@ -494,6 +495,26 @@ it("reviews Apertus suggestions into the private draft and publishes only after 
   expect(stored.items[0].values.category).toBe("symptom");
   expect(stored.items[0].values.severity).toBe(6);
   expect(stored.items[0].values.description).toBe("Headache and pain was 6/10.");
+}, 20000);
+
+it("shows partial-proposal warnings and keeps manual date and time when no supported suggestion exists", async () => {
+  const user = userEvent.setup();
+  const fields = { ...initialFields("2026-09-12", "symptom"),
+    description: "Headache and pain was 6/10.", time: "08:45", severity: "3" };
+  const { stored } = setup({ draft: { id, revision: 1, event_id: null,
+    base_revision: 0, fields, updated_at: timestamp },
+    aiWarnings: ["Occurrence date: the model suggestion disagrees with the source; neither was substituted."] });
+  await user.click(await screen.findByRole("button", { name: "Resume private draft" }));
+  await user.click(screen.getByRole("button", { name: "Organize with Apertus" }));
+  await screen.findByRole("heading", { name: "Suggestions to review" }, { timeout: 8000 });
+  expect(screen.getByText(/Needs your judgment: Occurrence date/)).toBeInTheDocument();
+  expect(screen.getByText(/Copied from your source text/)).toBeInTheDocument();
+  expect(screen.queryByLabelText(/Use suggested date or time period/)).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Copy selected suggestions to draft" }));
+  await waitFor(() => expect(stored.draft?.revision).toBe(2));
+  expect(stored.draft?.fields).toMatchObject({ year: "2026", month: "09", day: "12",
+    time: "08:45", severity: "6", description: fields.description });
+  expect(stored.items).toHaveLength(0);
 }, 20000);
 
 it("preserves writing on a revision conflict and requires review before a new correction", async () => {
