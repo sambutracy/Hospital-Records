@@ -1,8 +1,6 @@
 # Track 2 B: Own Project
 
-Project: **Comfort** — patient records, connected. See [Comfort setup and verification](src/README.md). The implementation contains Keycloak OAuth/OIDC sign-in, a protected workspace and records backend APIs. The challenge requirements below remain the submission contract.
-
-Repository layout clarification places **Makefile in the repository root**, alongside `track_2b/`. Run `make run` from that root; application, data and report sources stay here. The reply does not explicitly resolve the report PDF location; keep it here beside `technical_report.md` provisionally. The original challenge wording below is retained.
+Comfort is a patient-controlled health-record continuity prototype for Hack Apertus Track 2B. See [setup and verification](src/README.md). The Makefile is at the repository root; run `make run` there. The application and technical report remain in this directory, and the official challenge requirements are preserved below.
 
 Bring your own idea and build a working Apertus prototype that tackles a problem you care about — any domain, any use case. The project must be new, started within the hackathon period.
 
