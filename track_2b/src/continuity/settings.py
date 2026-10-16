@@ -7,6 +7,8 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEMO_MODE = os.getenv('DEMO_MODE', '0') == '1'
+# Enabled only after deployment-specific real-worker verification.
+CARE_INTELLIGENCE_ENABLED = os.getenv('CARE_INTELLIGENCE_ENABLED', '0') == '1'
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '')
 if not SECRET_KEY:
     raise ImproperlyConfigured('Set DJANGO_SECRET_KEY; make run initializes local demo secrets.')

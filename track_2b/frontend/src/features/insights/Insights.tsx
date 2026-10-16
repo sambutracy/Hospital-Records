@@ -32,6 +32,7 @@ import {
   type TimelineItem,
 } from "./contracts";
 import ObservationSummary from "./ObservationSummary";
+import CareIntelligence from "../care-intelligence/CareIntelligence";
 
 const kinds = [
   { value: "", label: "All event types" },
@@ -406,6 +407,7 @@ export default function Insights() {
           data={summary.data}
         />
       )}
+      <CareIntelligence key={`${patient.workspace_id}:${filters.from}:${filters.to}`} from={filters.from} to={filters.to} />
       <section className="insights-timeline" aria-labelledby="timeline-heading">
         <div className="section-heading">
           <div>

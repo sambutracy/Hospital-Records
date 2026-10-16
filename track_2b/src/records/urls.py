@@ -6,8 +6,14 @@ from . import medication_views as mv
 from . import care_views as care
 from . import journal_views as journal
 from . import insights_views as insights
+from . import care_intelligence_views as care_ai
 
 urlpatterns=[
+    path('care-ai/status/',care_ai.status,name='care_ai_status'),
+    path('care-ai/candidates/',care_ai.candidates,name='care_ai_candidates'),
+    path('care-ai/tasks/',care_ai.tasks,name='care_ai_tasks'),
+    path('care-ai/tasks/<uuid:task_id>/',care_ai.task,name='care_ai_task'),
+    path('care-ai/tasks/<uuid:task_id>/review/',care_ai.review,name='care_ai_review'),
     path('insights/timeline/',insights.timeline,name='insights_timeline'),
     path('insights/observations/',insights.observations,name='insights_observations'),
     path('journal/',journal.entries,name='journal_entries'),

@@ -134,7 +134,9 @@ class JournalAIRequest(WorkspaceModel):
     """Short-lived, patient-triggered interpretation of one saved draft revision."""
     task = models.OneToOneField('AssistantTask', on_delete=models.PROTECT, related_name='journal_ai')
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-    draft = models.ForeignKey(JournalDraft, on_delete=models.PROTECT)
+    # Historical identity, verified against the live workspace draft on INSERT.
+    # Recovery drafts are disposable; deleting one must not delete its AI audit trail.
+    draft_id = models.UUIDField(db_column='draft_id', db_index=True, editable=False)
     draft_revision = models.PositiveIntegerField()
     event = models.ForeignKey(JournalEvent, null=True, on_delete=models.PROTECT)
     base_revision = models.PositiveIntegerField(default=0)
@@ -400,9 +402,9 @@ class AssistantTask(WorkspaceModel):
     class Meta(WorkspaceModel.Meta):
         db_table = 'assistant_tasks'
         constraints = WorkspaceModel.Meta.constraints + [
-            models.CheckConstraint(condition=Q(kind__in=['search','packet_overview','explain_term','journal_interpretation']), name='assistant_kind'),
+            models.CheckConstraint(condition=Q(kind__in=['search','packet_overview','explain_term','journal_interpretation','history_exploration','followup_actions']), name='assistant_kind'),
             models.CheckConstraint(condition=Q(state__in=['queued','processing','waiting_model','completed','failed']), name='assistant_state'),
-            models.CheckConstraint(condition=Q(kind='packet_overview',packet_revision__isnull=False) | (~Q(kind='packet_overview') & Q(packet_revision__isnull=True)), name='assistant_packet_scope'),
+            models.CheckConstraint(condition=Q(kind__in=['packet_overview','followup_actions'],packet_revision__isnull=False) | (~Q(kind='packet_overview') & Q(packet_revision__isnull=True)), name='assistant_packet_scope'),
             models.CheckConstraint(condition=Q(state='completed',result__isnull=False) | (~Q(state='completed') & Q(result__isnull=True)), name='assistant_result_state'),
             models.UniqueConstraint(fields=['workspace','requested_by','kind'], condition=Q(state__in=['queued','processing','waiting_model']), name='one_active_assistant_kind'),
         ]
@@ -423,6 +425,38 @@ class AssistantSource(WorkspaceModel):
             models.UniqueConstraint(fields=['task','source_version'], name='assistant_source_once'),
             models.UniqueConstraint(fields=['task','source_label'], name='assistant_label_once'),
             models.CheckConstraint(condition=Q(snapshot_sha256__regex=r'^[0-9a-f]{64}$'), name='assistant_snapshot_shape'),
+        ]
+
+
+class CareAIEvidence(WorkspaceModel):
+    """Exact, immutable evidence selections; targets retain their own domain models."""
+    task = models.ForeignKey(AssistantTask,on_delete=models.PROTECT,related_name='care_evidence')
+    label = models.CharField(max_length=8)
+    kind = models.CharField(max_length=16)
+    target_id = models.UUIDField()
+    revision = models.PositiveIntegerField()
+    body = models.TextField()
+    snapshot_sha256 = models.CharField(max_length=64)
+    class Meta(WorkspaceModel.Meta):
+        db_table='care_ai_evidence'
+        constraints=WorkspaceModel.Meta.constraints+[
+            models.UniqueConstraint(fields=['task','label'],name='care_ai_evidence_label'),
+            models.UniqueConstraint(fields=['task','kind','target_id'],name='care_ai_evidence_once'),
+            models.CheckConstraint(condition=Q(kind__in=['journal','document','medication','concern','episode'],revision__gt=0),name='care_ai_evidence_kind'),
+            models.CheckConstraint(condition=Q(snapshot_sha256__regex=r'^[0-9a-f]{64}$'),name='care_ai_evidence_digest'),
+        ]
+
+
+class CareAIReview(WorkspaceModel):
+    """Private patient-reviewed planning draft; no care, sharing or scheduling writes."""
+    task = models.OneToOneField(AssistantTask,on_delete=models.PROTECT,related_name='care_review')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT)
+    outcome = models.CharField(max_length=16)
+    planning_draft = models.JSONField(null=True)
+    class Meta(WorkspaceModel.Meta):
+        db_table='care_ai_reviews'
+        constraints=WorkspaceModel.Meta.constraints+[
+            models.CheckConstraint(condition=Q(outcome__in=['kept','edited','rejected']),name='care_ai_review_outcome'),
         ]
 
 

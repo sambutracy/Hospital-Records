@@ -1,6 +1,6 @@
 # Comfort — AI journaling milestone 1 design
 
-Status: Patient-controlled backend/frontend slice and synthetic evaluation harness implemented. Live Apertus evaluation and authenticated local-model access remain open.
+Status: Patient-controlled backend/frontend slice and synthetic evaluation harness implemented. Trial-container Apertus authentication passed; app/worker path and live Journal evaluation remain to be verified.
 
 ## Implementation status (16 October 2026)
 
@@ -8,7 +8,7 @@ The working tree now adds `journal_interpretation` to the existing queue, with d
 
 Temporary narrative and unreviewed proposal content expire after seven days; rejection clears proposal content immediately. The existing serial worker runs bounded cleanup hourly. Queue wait, model setup, inference, validation and end-to-end worker timing are available as task metrics. Request and proposal tables have scoped foreign keys and PostgreSQL guards; the runtime role cannot delete the request/proposal rows or mutate review history.
 
-Verification on 16 October 2026: the app Docker build and TypeScript production build pass; all 43 frontend tests pass, including the AI proposal review journey; eight focused backend tests pass on an isolated SQLite test database; the 0017–0018 migration chain and custom guards passed against disposable PostgreSQL 18. The new corpus has 23 cases (12 development, 5 validation, 6 held-out), and the harness verifies all non-null evidence quotations against source text. Its narrow deterministic baseline scores 83.77% field accuracy and 59.09% exact-case accuracy over 22 non-empty cases. Those are baseline harness results, not Apertus results. A synthetic direct request to the healthy local Apertus endpoint returned HTTP 401; no successful generation or model latency measurement is available. The endpoint's effective credential configuration remains unverified. Do not describe the model as evaluated or clinically effective.
+Verification on 16 October 2026: the app Docker build and TypeScript production build pass; all 43 frontend tests pass, including the AI proposal review journey; eight focused backend tests pass on an isolated SQLite test database; the 0017–0018 migration chain and custom guards passed against disposable PostgreSQL 18. The new corpus has 23 cases (12 development, 5 validation, 6 held-out), and the harness verifies all non-null evidence quotations against source text. Its narrow deterministic baseline scores 83.77% field accuracy and 59.09% exact-case accuracy over 22 non-empty cases. Those are baseline harness results, not Apertus results. The first direct request returned HTTP 401. A later trial-container diagnostic successfully authenticated model listing and a synthetic completion, which returned choices in 21.384 seconds. This does not yet verify the app's mounted credential or the Journal worker path. Do not describe the model as evaluated or clinically effective.
 
 ## Objective and boundary
 
@@ -107,7 +107,7 @@ Measure queue wait, model setup, generation, validation, total, prompt/completio
 
 ## Evaluation and delivery gates
 
-Use the versioned fictional corpus under `data/journal-ai-v1/`; never edit frozen Apertus metadata or synthetic healthcare fixtures. Expected values are authored independently. Version 1 splits into development (12), validation (5), and held-out test (6). It covers numeric and qualitative severity, exact/partial/relative/ambiguous dates, negation, uncertainty, unspecified medication, family vs patient history, multiple symptoms, recovery, chronic-care wording, Kenyan English, mixed language, prompt injection, contradiction and empty input. Empty input is a pre-inference rejection. `python src/tools/journal_ai_eval.py check` verifies fixture integrity and produces the deterministic baseline; `run --split development|validation|test|all` sends only fictional cases to the configured Apertus endpoint and records aggregate metrics under ignored `.runtime/`. The local endpoint currently returns 401, so no Apertus score or speed claim is available. Include only synthetic strings and no external patient data.
+Use the versioned fictional corpus under `data/journal-ai-v1/`; never edit frozen Apertus metadata or synthetic healthcare fixtures. Expected values are authored independently. Version 1 splits into development (12), validation (5), and held-out test (6). It covers numeric and qualitative severity, exact/partial/relative/ambiguous dates, negation, uncertainty, unspecified medication, family vs patient history, multiple symptoms, recovery, chronic-care wording, Kenyan English, mixed language, prompt injection, contradiction and empty input. Empty input is a pre-inference rejection. `python src/tools/journal_ai_eval.py check` verifies fixture integrity and produces the deterministic baseline; `run --split development|validation|test|all` sends only fictional cases to the configured Apertus endpoint and records aggregate metrics under ignored `.runtime/`. A status-only diagnostic in the local `trial` container succeeded for authenticated model listing and a synthetic completion (21.384 seconds). That verifies the local key-file flow in `trial`, but not the app container mount or actual Journal worker path. Do not claim a Journal score or speed until the staged worker-path and evaluation runs complete. Include only synthetic strings and no external patient data.
 
 Score strict-schema rate; field precision/recall/exact match; evidence-span validity; unsupported-value invention; date/negation/uncertainty correctness; abstentions; corrections/rejections; manual-vs-AI authoring time; p50/p95 queue/generation/total latency; token counts and memory. Compare manual Journal, a deterministic extraction baseline, and Apertus. Do not grade Apertus against outputs generated by Apertus. Do not claim clinical accuracy or improvement from a schema/build test.
 
@@ -115,7 +115,7 @@ Phase 2 security tests must cover self authorization, cross-workspace and share-
 
 ## Residual deployment constraints
 
-The Journal AI workflow, review interface and reproducible evaluation harness are implemented. Live Apertus inference remains blocked by the local endpoint's HTTP 401 response. A credential-sensitive check of the running container's effective model configuration was rejected by automatic approval review; the key was not read or shared. The operator should verify the ignored local endpoint configuration without posting its key in chat, then run a bounded synthetic development split and record latency and field-level results. An OS package CVE scan and full application penetration test remain open. Do not load genuine patient data or describe Comfort as clinically validated.
+The Journal AI workflow, review interface and reproducible evaluation harness are implemented. The later trial-container check succeeded, but this Codex session cannot verify the running app/worker image IDs, mounted-file status, database migration state, or a real Journal request: Docker Desktop denied the non-elevated CLI access to its named pipe. No elevated retry or credential access was attempted. An OS package CVE scan and full application penetration test remain open. Do not load genuine patient data or describe Comfort as clinically validated.
 
 ## Local Apertus authentication investigation (16 October 2026)
 
@@ -123,17 +123,41 @@ The local Compose source sets both app and worker to `http://inference:8080/v1` 
 
 Both the Journal worker and the existing assistant use `intelligence.trial.configuration()`, `available_models()` and `request_json()`. The configuration loader reads the configured key file and lets it override the intentionally empty `LLM_API_KEY`; the shared request helper adds `Authorization: Bearer …`. Unit coverage verifies this precedence with fictional keys. This source-level comparison shows no Journal-specific authentication divergence.
 
-The running worker's effective environment, mounted-file status, and a minimal authenticated request could not be checked: the non-elevated Docker CLI was denied access to Docker Desktop's named pipe. Per the operator's instruction, no elevated retry was made. Therefore the earlier HTTP 401 is not yet reproduced through the worker's established file-based path, and it does not establish that the mounted key itself is rejected. The 23-case live evaluation was not run while authentication remains unverified. To perform the status-only check locally, from the repository root run:
+The operator reports that the status-only diagnostic returned `models_auth=ok`, `completion_auth=ok`, the configured model was listed, and the synthetic completion returned choices in 21.384 seconds. This confirms authentication through the local `trial` container. The earlier direct HTTP 401 may have come from an older image or request path; it does not prove that the credential is rejected. The running app/worker image IDs, worker's mounted-file status, database migration state and actual Journal request still need verification. Docker's named-pipe access is denied to this Codex session, so no elevated retry or alternate credential access was attempted.
 
 ```powershell
-docker compose --project-directory track_2b --file track_2b/compose.yaml --file track_2b/compose.local.yaml run --build --rm --no-deps trial python src/tools/check_apertus_auth.py
+$compose = @('--project-directory', 'track_2b', '--file', 'track_2b/compose.yaml', '--file', 'track_2b/compose.local.yaml')
+docker compose @compose build app worker migrate
+if ($LASTEXITCODE -ne 0) { throw 'Image build failed.' }
+docker compose @compose run --rm migrate
+if ($LASTEXITCODE -ne 0) { throw 'Database migration failed.' }
+docker compose @compose up --build --detach --wait app worker
+if ($LASTEXITCODE -ne 0) { throw 'App/worker startup failed.' }
+docker compose @compose ps app worker inference database
+docker compose @compose images app worker
+docker compose @compose run --rm --no-deps migrate python src/manage.py showmigrations records
+docker compose @compose exec worker python -c "import os,pathlib; k=os.environ.get('LLM_API_KEY_FILE',''); p=pathlib.Path(k) if k else pathlib.Path('/__comfort_missing__'); print({'base_url':os.environ.get('LLM_BASE_URL'), 'model':os.environ.get('LLM_NAME'), 'key_file_configured':bool(k), 'key_file_exists':p.is_file(), 'key_file_readable':p.is_file() and os.access(p,os.R_OK), 'legacy_key_env_populated':bool(os.environ.get('LLM_API_KEY'))})"
 ```
 
-The diagnostic reports only target, credential presence/readability, auth outcome, and latency; it does not print the key or model response. If both `models_auth` and `completion_auth` report `ok`, preserve the detailed 23-case report on the host and run the fictional evaluation:
+The `migrate` service applies pending migrations without resetting volumes. `up --build` recreates stale app/worker containers and waits for their dependencies and health checks. To verify an actual app-to-worker request, sign in as a fictional synthetic patient, save a short fictional Journal draft, and invoke the Journal AI organization action once. Confirm that a completed, reviewable proposal appears in the app. Do not use real health information. This traverses authenticated app request, persisted task, worker, local endpoint and proposal retrieval. If it fails, preserve the safe UI error and inspect only bounded service logs with `docker compose @compose logs --tail 100 app worker`; do not print environment variables or credentials.
+
+The evaluator needs the application dependencies and settings, so run it in the worker image, rather than the minimal authentication trial image. Preserve its timestamped reports with a host mount:
 
 ```powershell
-New-Item -ItemType Directory -Force track_2b/.runtime/journal-ai-eval | Out-Null
-docker compose --project-directory track_2b --file track_2b/compose.yaml --file track_2b/compose.local.yaml run --build --rm --no-deps --volume ./.runtime/journal-ai-eval:/app/.runtime/journal-ai-eval trial python src/tools/journal_ai_eval.py run --split all
+$reportDir = Join-Path $PWD 'track_2b/.runtime/journal-ai-eval'
+New-Item -ItemType Directory -Force $reportDir | Out-Null
 ```
 
-The evaluator keeps going after per-case request failures, writes each outcome and any not-attempted IDs, and reports response-conditioned field/exact-case accuracy separately from request-failure rate and latency. It never overwrites prior timestamped reports. Keep these live Apertus results separate from the deterministic baseline.
+The five-case Apertus gate below covers explicit numeric severity, an ambiguous date, negation/family-history separation, unspecified medication information and a prompt-injection attempt requesting an unsupported diagnosis. The evaluator saves each timestamped outcome under ignored `.runtime/journal-ai-eval` and returns nonzero for incomplete cases, invalid outputs or request failures:
+
+```powershell
+docker compose @compose run --rm --no-deps --volume "${reportDir}:/app/.runtime/journal-ai-eval" worker python src/tools/journal_ai_eval.py run --case-ids dev-03 dev-07 dev-09 dev-08 val-04
+```
+
+Proceed to the full run only if all five produce valid schema and evidence, exact expected fields, no unsupported values, and no request failures. The full pass includes those five again by design and covers the complete frozen 23-case corpus:
+
+```powershell
+docker compose @compose run --rm --no-deps --volume "${reportDir}:/app/.runtime/journal-ai-eval" worker python src/tools/journal_ai_eval.py run --split all
+```
+
+The evaluator continues after per-case failures, records failed and not-attempted case IDs, and reports model-response field/exact-case accuracy, invalid outputs, request failures and latency separately from the deterministic baseline. It never overwrites prior timestamped reports. After reviewing these results, run focused regressions with `docker compose @compose run --rm --no-deps migrate python src/manage.py test records.tests.test_journal_ai --settings=continuity.test_settings --noinput`, then run `make test` from the repository root. Push only after the app-worker request, required evaluation runs and targeted regressions have completed and been recorded.

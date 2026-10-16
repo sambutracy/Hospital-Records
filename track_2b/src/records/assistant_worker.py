@@ -72,6 +72,9 @@ def finish_failure(task_id,token,code,state='failed'):
 def process_one(task_id,token):
     from .models import AssistantTask as TaskModel
     task_kind=TaskModel.objects.filter(pk=task_id).values_list('kind',flat=True).first()
+    if task_kind in ('history_exploration','followup_actions'):
+        from .care_intelligence import process_one as process_care_ai
+        return process_care_ai(task_id,token)
     if task_kind=='journal_interpretation':
         from .journal_ai import process_one as process_journal_ai
         return process_journal_ai(task_id,token)

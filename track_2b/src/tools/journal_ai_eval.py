@@ -111,7 +111,23 @@ def check_manifest():
             'baseline_note': 'Narrow deterministic rules; empty input is a preflight rejection, not inferred.'}
 
 
-def evaluate(config, split, limit):
+def select_cases(cases, split, limit=0, case_ids=None):
+    requested_ids = set(case_ids or [])
+    known_ids = {case['id'] for case in cases}
+    unknown_ids = requested_ids - known_ids
+    if unknown_ids:
+        raise ValueError('Unknown case ID(s): ' + ', '.join(sorted(unknown_ids)))
+    if requested_ids and len(requested_ids) != len(case_ids):
+        raise ValueError('Duplicate case IDs are not allowed.')
+    selected = [case for case in cases
+                if (requested_ids and case['id'] in requested_ids)
+                or (not requested_ids and (split == 'all' or case['split'] == split))]
+    if limit:
+        selected = selected[:limit]
+    return selected
+
+
+def evaluate(config, split, limit, case_ids=None):
     sys.path.insert(0, str(SOURCE))
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'continuity.settings')
     import django
@@ -121,13 +137,12 @@ def evaluate(config, split, limit):
 
     raw = FIXTURE.read_bytes()
     manifest = json.loads(raw)
-    selected = [case for case in manifest['cases'] if split == 'all' or case['split'] == split]
-    if limit:
-        selected = selected[:limit]
+    selected = select_cases(manifest['cases'], split, limit, case_ids)
     report = {'mode': 'live_synthetic_journal_evaluation', 'dataset_version': manifest['version'],
         'dataset_sha256': sha(raw), 'harness_sha256': sha(Path(__file__).read_bytes()),
         'prompt_version': PROMPT_VERSION, 'prompt_sha256': sha(JOURNAL_SYSTEM.encode()),
-        'model': config['model'], 'split': split, 'planned_cases': len(selected), 'results': []}
+        'model': config['model'], 'split': split, 'selected_case_ids': [case['id'] for case in selected],
+        'planned_cases': len(selected), 'results': []}
     preflight_error = None
     try:
         available_models(config)
@@ -211,6 +226,12 @@ def evaluate(config, split, limit):
     not_attempted = [item['case_id'] for item in attempted if item.get('status') == 'not_attempted']
     request_failures = [item['case_id'] for item in attempted if item.get('status') == 'request_failed']
     invalid_responses = [item['case_id'] for item in attempted if item.get('status') == 'invalid_response']
+    invalid_output_ids = [item['case_id'] for item in attempted
+        if item.get('status') == 'invalid_response'
+        or item.get('grading', {}).get('schema_valid') is False
+        or item.get('grading', {}).get('evidence_valid') is False]
+    invalid_evidence = [item['case_id'] for item in attempted
+        if item.get('grading', {}).get('evidence_valid') is False]
     response_count = sum(bool(item.get('response_received')) for item in attempted)
     inference_cases = sum(item.get('status') in ('response_received', 'invalid_response', 'request_failed')
                          for item in attempted)
@@ -218,6 +239,8 @@ def evaluate(config, split, limit):
         'successful_responses_received': response_count,
         'request_failures': len(request_failures), 'request_failure_case_ids': request_failures,
         'invalid_responses': len(invalid_responses), 'invalid_response_case_ids': invalid_responses,
+        'invalid_outputs': len(invalid_output_ids), 'invalid_output_case_ids': invalid_output_ids,
+        'invalid_evidence_cases': len(invalid_evidence), 'invalid_evidence_case_ids': invalid_evidence,
         'not_attempted_cases': len(not_attempted), 'not_attempted_case_ids': not_attempted,
         'preflight_empty_cases': sum(item.get('status') == 'preflight_rejected_empty' for item in attempted),
         'valid_schema_cases': sum(bool(item.get('schema_valid')) for item in graded),
@@ -247,6 +270,8 @@ def main():
     parser.add_argument('command', choices=('check', 'run'))
     parser.add_argument('--split', choices=('development','validation','test','all'), default='development')
     parser.add_argument('--limit', type=int, default=0)
+    parser.add_argument('--case-ids', nargs='+', metavar='CASE_ID',
+                        help='Run only these frozen synthetic case IDs, in manifest order.')
     args = parser.parse_args()
     try:
         summary = check_manifest()
@@ -254,10 +279,10 @@ def main():
             print(json.dumps(summary, indent=2)); return 0
         if args.limit < 0:
             raise ValueError('--limit must be nonnegative.')
-        path, result = evaluate(configuration(), args.split, args.limit)
+        path, result = evaluate(configuration(), args.split, args.limit, args.case_ids)
         print('Saved local fictional evaluation: ' + str(path))
         print(json.dumps({'dataset': summary, 'evaluation': result}, indent=2))
-        return 0 if result['complete'] and result['all_requests_succeeded'] else 1
+        return 0 if result['complete'] and result['all_requests_succeeded'] and not result['invalid_outputs'] else 1
     except (OSError, ValueError, TrialError) as error:
         print('Evaluation unavailable: ' + str(error), file=sys.stderr)
         return 2

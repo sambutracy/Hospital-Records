@@ -12,6 +12,7 @@ import {
 import { partialDate, typeLabel } from "../records/RecordCard";
 import Assistant from "../records/Assistant";
 import CareNavigation from "./CareNavigation";
+import CareIntelligence from "../care-intelligence/CareIntelligence";
 export default function Consultation() {
   const patient = usePatient();
   const { packetId } = useParams();
@@ -69,6 +70,7 @@ export default function Consultation() {
                 ))}
               </div>
               <Assistant packetId={packetId} />
+              {patient.capabilities.includes("manage_profile")&&patient.capabilities.includes("prepare_packet")&&<CareIntelligence key={packetId} packetId={packetId} />}
             </>
           )
         )

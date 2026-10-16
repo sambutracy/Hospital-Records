@@ -89,6 +89,7 @@ services:
     build: .
     environment:
       DEMO_MODE: "1"
+      CARE_INTELLIGENCE_ENABLED: ${CARE_INTELLIGENCE_ENABLED:-0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
       DATABASE_URL: postgresql://continuity_app:${APP_DATABASE_PASSWORD:-}@database:5432/continuity
       APP_BASE_URL: http://${APP_HOST:-localhost}:${APP_PORT:-8000}
@@ -129,6 +130,7 @@ services:
     command: ["python", "src/manage.py", "process_records"]
     environment:
       DEMO_MODE: "1"
+      CARE_INTELLIGENCE_ENABLED: ${CARE_INTELLIGENCE_ENABLED:-0}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
       DATABASE_URL: postgresql://continuity_app:${APP_DATABASE_PASSWORD:-}@database:5432/continuity
       PRIVATE_STORAGE_ROOT: /private-documents

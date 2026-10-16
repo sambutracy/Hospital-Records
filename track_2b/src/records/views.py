@@ -311,7 +311,7 @@ def assistant_tasks(request,workspace_id):
             return JsonResponse({'error':str(error)},status=400)
         return JsonResponse(assistant_payload(task),status=202)
     services.authorize(request.user,workspace_id)
-    tasks=AssistantTask.objects.filter(workspace_id=workspace_id,requested_by=request.user).exclude(kind='journal_interpretation').order_by('-created_at')[:10]
+    tasks=AssistantTask.objects.filter(workspace_id=workspace_id,requested_by=request.user).filter(kind__in=['search','packet_overview','explain_term']).order_by('-created_at')[:10]
     # A prepare permission can be revoked independently; omit those task details.
     visible=[]
     for task in tasks:
@@ -327,7 +327,7 @@ def assistant_tasks(request,workspace_id):
 @api
 def assistant_task(request,workspace_id,task_id):
     task=assistant.get_task(request.user,workspace_id,task_id)
-    if task.kind=='journal_interpretation':
+    if task.kind not in ('search','packet_overview','explain_term'):
         raise Http404
     services.audit(request.user,task.workspace,'assistant.result_read',task)
     return JsonResponse(assistant_payload(task))
@@ -337,7 +337,7 @@ def assistant_task(request,workspace_id,task_id):
 @api
 def assistant_cancel(request,workspace_id,task_id):
     task=assistant.get_task(request.user,workspace_id,task_id)
-    if task.kind=='journal_interpretation':
+    if task.kind not in ('search','packet_overview','explain_term'):
         raise Http404
     return JsonResponse(assistant_payload(assistant.cancel_task(request.user,workspace_id,task_id)))
 

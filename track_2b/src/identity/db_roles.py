@@ -22,3 +22,4 @@ def configure_runtime_permissions(connection):
         cursor.execute('REVOKE TRUNCATE ON journal_drafts FROM continuity_app')
         cursor.execute('REVOKE DELETE, TRUNCATE ON journal_ai_requests, journal_ai_proposals FROM continuity_app')
         cursor.execute('REVOKE UPDATE, DELETE, TRUNCATE ON journal_ai_reviews FROM continuity_app')
+        cursor.execute('REVOKE UPDATE, DELETE, TRUNCATE ON care_ai_evidence, care_ai_reviews FROM continuity_app')

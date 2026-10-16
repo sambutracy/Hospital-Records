@@ -184,6 +184,7 @@ class JournalMigrationTests(TransactionTestCase):
 
     def test_forward_reverse_preserves_existing_record_tables(self):
         from django.db.migrations.executor import MigrationExecutor
+        latest=MigrationExecutor(connection).loader.graph.leaf_nodes()
         from identity.services import resolve_verified_identity
         from identity.models import PatientWorkspace
         from records.models import SourceRecord
@@ -197,7 +198,7 @@ class JournalMigrationTests(TransactionTestCase):
             MigrationExecutor(connection).migrate([('records','0014_care_guards')])
             self.assertTrue(SourceRecord.objects.filter(pk=record.pk).exists())
         finally:
-            MigrationExecutor(connection).migrate([('records','0016_journal_guards')])
+            MigrationExecutor(connection).migrate(latest)
             configure_runtime_permissions(connection)
         self.assertTrue(SourceRecord.objects.filter(pk=record.pk).exists())
         self.assertEqual(JournalEvent.objects.count(),0)
