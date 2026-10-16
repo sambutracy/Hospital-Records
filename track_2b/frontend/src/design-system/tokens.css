@@ -1,13 +1,13 @@
 @import "tailwindcss";
 :root {
-  --color-canvas: #f7f8f4;
-  --color-surface: #fff;
-  --color-ink: #182f32;
-  --color-muted: #4f6768;
-  --color-primary: #125b55;
-  --color-primary-soft: #e8f2ef;
-  --color-clay-soft: #f3e6de;
-  --color-border: #d7e3dd;
+  --color-canvas: #f7f6f0;
+  --color-surface: #fffefa;
+  --color-ink: #1d3230;
+  --color-muted: #526866;
+  --color-primary: #145b52;
+  --color-primary-soft: #e8f1ec;
+  --color-clay-soft: #f2e6dc;
+  --color-border: #d9e0d8;
   --color-control-border: #718781;
   --focus-ring: #996500;
   --color-error: #8a2632;
@@ -16,7 +16,7 @@
   --color-warning-soft: #fcf3da;
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-lg: 16px;
   --space-unit: 4px;
   --font-body: "Source Sans 3", Arial, sans-serif;
   --content-width: 1160px;
@@ -238,7 +238,7 @@ h1:focus {
   position: sticky;
   top: 0;
   height: 100vh;
-  background: #fff;
+  background: #fbfaf5;
   border-right: 1px solid var(--color-border);
   padding: 32px 24px;
   display: flex;
@@ -260,11 +260,17 @@ h1:focus {
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border-radius: var(--radius-sm);
+  border-radius: 7px;
   text-decoration: none;
   color: var(--color-muted);
   font-size: 1.1rem;
-  min-height: 48px;
+  min-height: 50px;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.navigation-rail nav a:hover,
+.mobile-navigation a:hover {
+  background: #f1f3ed;
+  text-decoration: none;
 }
 .navigation-rail nav a.active {
   background: var(--color-primary-soft);
@@ -289,7 +295,12 @@ h1:focus {
   gap: 12px;
   padding: 20px 40px;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: #fbfaf5;
+}
+.session-expiry-wrap {
+  max-width: var(--content-width);
+  margin: 14px auto 0;
+  padding: 0 40px;
 }
 .context-control {
   display: flex;
@@ -315,7 +326,7 @@ h1:focus {
 .main-content {
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 44px 40px 60px;
+  padding: 40px 40px 60px;
   min-height: 70vh;
 }
 .page-header {
@@ -335,7 +346,7 @@ h1:focus {
 }
 .home-intro {
   border-radius: var(--radius-lg);
-  background: var(--color-primary-soft);
+  background: linear-gradient(112deg, #e8f1ec 0%, #edf2e9 68%, #f2e6dc 100%);
   padding: 36px;
   display: grid;
   grid-template-columns: 1fr 200px;
@@ -400,6 +411,28 @@ h1:focus {
   gap: 12px;
   min-width: 0;
 }
+.home-next-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 28px 0 8px;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+.home-next-steps a {
+  min-width: 0;
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.home-next-steps a:hover strong { text-decoration: underline; }
+.home-next-steps a > span { display: grid; gap: 3px; }
+.home-next-steps strong { color: var(--color-ink); font-size: 1rem; }
+.home-next-steps small { color: var(--color-muted); font-size: .92rem; line-height: 1.35; }
 .record-card h3 a {
   overflow-wrap: anywhere;
   text-decoration: none;
@@ -768,15 +801,15 @@ fieldset legend {
     padding: 10px;
   }
   .mobile-navigation {
-    display: flex;
-    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
     position: sticky;
     top: 0;
-    background: #fff;
+    background: #fbfaf5;
     border-bottom: 1px solid var(--color-border);
     z-index: 5;
-    padding: 8px;
+    padding: 7px 8px;
   }
   .mobile-navigation a {
     display: flex;
@@ -784,11 +817,12 @@ fieldset legend {
     align-items: center;
     justify-content: center;
     gap: 4px;
-    min-width: 52px;
-    min-height: 52px;
-    flex: 1;
+    min-width: 0;
+    min-height: 58px;
+    padding: 3px 2px;
     color: var(--color-muted);
-    font-size: 0.9rem;
+    font-size: 0.78rem;
+    line-height: 1.2;
     text-decoration: none;
     border-radius: 8px;
   }
@@ -797,6 +831,8 @@ fieldset legend {
     color: var(--color-primary);
     font-weight: 600;
   }
+  .mobile-navigation a span { text-align: center; overflow-wrap: anywhere; }
+  .session-expiry-wrap { padding: 0 16px; }
   .main-content {
     padding: 28px 16px 44px;
   }
@@ -809,6 +845,8 @@ fieldset legend {
     padding: 24px;
     grid-template-columns: 1fr;
   }
+  .home-next-steps { grid-template-columns: 1fr; }
+  .home-next-steps a { min-height: 76px; }
   .intro-illustration {
     display: none;
   }

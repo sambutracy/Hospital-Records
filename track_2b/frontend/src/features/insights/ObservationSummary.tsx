@@ -12,19 +12,18 @@ export default function ObservationSummary({ data }: { data: Observations }) {
       className="panel insights-summary"
       aria-labelledby="observations-heading"
     >
-      <p className="eyebrow">Your recorded experience</p>
+      <p className="eyebrow">Journal overview</p>
       <h2 id="observations-heading">Symptom observations</h2>
       <p>
-        From {data.from} to {data.to}. Counts use exact local dates and active
-        symptom entries in Journal.
+        Journal · {data.from} to {data.to} · by reported date.
       </p>
       <dl className="insights-stats">
         <div>
-          <dt>Observations recorded</dt>
+          <dt>Entries</dt>
           <dd>{data.exact_dated_observations}</dd>
         </div>
         <div>
-          <dt>Days with observations</dt>
+          <dt>Days with entries</dt>
           <dd>
             {data.days_with_observations} <span>of {data.days_in_range}</span>
           </dd>
@@ -32,17 +31,14 @@ export default function ObservationSummary({ data }: { data: Observations }) {
         <div>
           <dt>Days without entries</dt>
           <dd>
-            {data.days_without_entries} <span>· how you felt is unknown</span>
+            {data.days_without_entries}
           </dd>
         </div>
       </dl>
       {data.chart_ready ? (
         <figure className="insights-chart">
-          <figcaption>Recorded observations by date</figcaption>
-          <p>
-            Dates with entries only; unrecorded dates are omitted. Bar height
-            counts entries, not severity.
-          </p>
+          <figcaption>Entries by day</figcaption>
+          <p>Bar height counts entries, not severity.</p>
           <div className="insights-bars" aria-hidden="true">
             {recorded.map((row) => (
               <div className="insights-bar-column" key={row.date}>
@@ -56,35 +52,30 @@ export default function ObservationSummary({ data }: { data: Observations }) {
               </div>
             ))}
           </div>
-          <p>
-            The same numbers and any reported scores are available in the table
-            below.
-          </p>
         </figure>
       ) : (
         <Notice>
-          There are not yet observations on three different dates in this range.
-          Your entries remain available below; there is no trend to infer.
+          Fewer than three dates have entries, so no trend is shown.
         </Notice>
       )}
-      <p>
-        {data.partial_date_observations_excluded} partially dated observations
-        overlap this range and are excluded from daily counts.{" "}
-        {data.undated_observations_excluded} undated observations cannot be
-        assigned to this range.
-      </p>
-      <p>
-        {data.unscored_observations} observations have no severity score.
-        Different entries may describe different symptoms; their scores are not
-        averaged.
-      </p>
+      {(data.partial_date_observations_excluded > 0 || data.undated_observations_excluded > 0) && (
+        <p>
+          {data.partial_date_observations_excluded > 0 && `${data.partial_date_observations_excluded} partial-date ${data.partial_date_observations_excluded === 1 ? "entry overlaps" : "entries overlap"} this range; ${data.partial_date_observations_excluded === 1 ? "it is" : "they are"} excluded from daily counts.`}
+          {data.partial_date_observations_excluded > 0 && data.undated_observations_excluded > 0 ? " " : ""}
+          {data.undated_observations_excluded > 0 && `${data.undated_observations_excluded} undated ${data.undated_observations_excluded === 1 ? "entry cannot" : "entries cannot"} be placed in this range.`}
+        </p>
+      )}
+      {data.unscored_observations > 0 && (
+        <p>
+          {data.unscored_observations} {data.unscored_observations === 1 ? "entry has" : "entries have"} no severity score. Scores aren't averaged across symptoms.
+        </p>
+      )}
       <details className="insights-data">
-        <summary>View observation data, including unrecorded days</summary>
+        <summary>Daily counts and scores</summary>
         <div className="insights-table-wrap">
           <table>
             <caption>
-              Patient-reported symptom entries · daily counts and reported
-              severity
+              Journal symptom entries by date
             </caption>
             <thead>
               <tr>
@@ -134,9 +125,8 @@ export default function ObservationSummary({ data }: { data: Observations }) {
         </nav>
       </details>
       <p className="care-access">
-        These are counts of what was recorded, not unique symptom episodes.
-        Blank days do not mean symptom-free days. This view does not infer a
-        diagnosis, a cause or medication adherence.
+        Counts are entries, not separate episodes. Blank days don't mean
+        symptom-free. No diagnosis or cause is inferred.
       </p>
     </section>
   );

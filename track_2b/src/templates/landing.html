@@ -1,7 +1,44 @@
 {% extends 'base.html' %}
-{% block content %}<section class="intro"><p class="eyebrow">COMFORT · PATIENT HEALTH CONTINUITY</p>
-<h1>Your care starts<br>with your records.</h1>
-<p class="lead">A place to keep your health history connected across visits.</p>
-<form method="post" action="{% url 'oidc_login' %}">{% csrf_token %}<button type="submit">Sign in securely</button></form>
-<p><a href="{% url 'comfort_frontend' %}">Open the new Comfort interface</a></p>
-{% if demo_mode %}<p class="quiet">Local prototype. Use a synthetic account from the demo setup.</p>{% endif %}</section>{% endblock %}
+{% block title %}Comfort · Your health story, in your hands{% endblock %}
+{% block content %}
+<div class="landing-page">
+  <section class="landing-hero" aria-labelledby="landing-title">
+    <div class="landing-copy">
+      <p class="eyebrow">A little more continuity</p>
+      <h1 id="landing-title">Your health story,<br><em>in your hands.</em></h1>
+      <p class="landing-lead">Keep your records, personal notes and care history together—so you can feel more prepared for the next step.</p>
+      <form id="sign-in" method="post" action="{% url 'oidc_login' %}" class="landing-signin">{% csrf_token %}<button type="submit">Sign in securely <span aria-hidden="true">→</span></button></form>
+      {% if demo_mode %}<p class="landing-prototype">Comfort is a local prototype. Use a synthetic account for this demonstration.</p>{% endif %}
+    </div>
+    <div class="journey-illustration" role="img" aria-label="Illustration showing a personal note, an original record and preparation for a future conversation">
+      <div class="journey-orbit" aria-hidden="true"></div>
+      <article class="journey-paper journey-paper--note"><span class="journey-label">YOUR JOURNAL</span><span class="journey-rule journey-rule--long"></span><span class="journey-rule"></span><span class="journey-rule journey-rule--short"></span><span class="journey-date">A note in your own words</span></article>
+      <span class="journey-connector journey-connector--one" aria-hidden="true"></span>
+      <article class="journey-paper journey-paper--record"><span class="journey-record-mark" aria-hidden="true">C</span><span class="journey-label">YOUR RECORD</span><span class="journey-rule journey-rule--long"></span><span class="journey-rule journey-rule--short"></span><span class="journey-date">Original kept together</span></article>
+      <span class="journey-connector journey-connector--two" aria-hidden="true"></span>
+      <article class="journey-paper journey-paper--visit"><span class="journey-label">A NEXT STEP</span><span class="journey-visit-title">A conversation,<br>better prepared.</span><span class="journey-date">You choose what to bring</span></article>
+      <p class="journey-caption">An illustration of how information can stay connected. No patient data shown.</p>
+    </div>
+  </section>
+
+  <section class="landing-how" aria-labelledby="how-title">
+    <div class="landing-section-heading"><p class="eyebrow">A simple place to begin</p><h2 id="how-title">Keep what matters close.</h2></div>
+    <ol class="landing-steps">
+      <li><span class="step-number">01</span><h3>Keep your records together</h3><p>Save reports and other health documents from different visits in one place.</p></li>
+      <li><span class="step-number">02</span><h3>Make sense of your history</h3><p>Read your records alongside personal notes, with dates and sources kept visible.</p></li>
+      <li><span class="step-number">03</span><h3>Prepare for the conversations that matter</h3><p>Set aside information for a visit. Sharing it always requires a separate choice.</p></li>
+    </ol>
+  </section>
+
+  <section class="landing-trust" aria-labelledby="trust-title">
+    <div class="trust-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div><p class="eyebrow">Your information stays yours</p><h2 id="trust-title">A little more clarity.<br>A choice at every step.</h2></div>
+    <ul><li>Your original documents are preserved.</li><li>Personal notes stay separate from uploaded records.</li><li>Access is controlled, and sharing needs your explicit approval.</li></ul>
+  </section>
+
+  <section class="landing-close" aria-labelledby="close-title">
+    <p class="eyebrow">Whenever you are ready</p><h2 id="close-title">Take the next step at your pace.</h2>
+    <form method="post" action="{% url 'oidc_login' %}">{% csrf_token %}<button type="submit">Sign in securely <span aria-hidden="true">→</span></button></form>
+  </section>
+</div>
+{% endblock %}

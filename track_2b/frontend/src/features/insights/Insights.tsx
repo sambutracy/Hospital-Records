@@ -236,7 +236,7 @@ export default function Insights() {
   if (!permitted)
     return (
       <>
-        <PageHeader title="Insights" />
+          <PageHeader title="Health history" />
         <Notice>
           Your current context does not permit access to this private history.
         </Notice>
@@ -245,7 +245,7 @@ export default function Insights() {
   return (
     <>
       <PageHeader
-        title="Insights"
+        title="Health history"
         eyebrow="A little perspective"
         action={
           <Button
@@ -260,9 +260,11 @@ export default function Insights() {
         Bring the days and the documents together, with room for what is still
         unknown.
       </PageHeader>
+      <details className="insights-filter-disclosure">
+      <summary>Adjust dates and filters</summary>
       <form
         className="panel insights-filters"
-        aria-label="Insights filters"
+        aria-label="Health history filters"
         onSubmit={(event) => {
           event.preventDefault();
           const days =
@@ -392,6 +394,7 @@ export default function Insights() {
         )}
         <Button type="submit">Apply filters</Button>
       </form>
+      </details>
       {summary.isLoading && <Loading>Counting recorded observations…</Loading>}
       {summary.error && (
         <Notice live tone="error">
@@ -407,7 +410,6 @@ export default function Insights() {
           data={summary.data}
         />
       )}
-      <CareIntelligence key={`${patient.workspace_id}:${filters.from}:${filters.to}`} from={filters.from} to={filters.to} />
       <section className="insights-timeline" aria-labelledby="timeline-heading">
         <div className="section-heading">
           <div>
@@ -614,6 +616,7 @@ export default function Insights() {
           <Link to={`${root}/care`}>Your private visit selections</Link>
         </div>
       </aside>
+      <CareIntelligence key={`${patient.workspace_id}:${filters.from}:${filters.to}`} from={filters.from} to={filters.to} />
     </>
   );
 }

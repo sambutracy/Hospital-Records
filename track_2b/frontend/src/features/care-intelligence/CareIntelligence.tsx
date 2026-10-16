@@ -133,8 +133,8 @@ export default function CareIntelligence({
       </h2>
       <p>
         {packetId
-          ? "Apertus can find instructions explicitly written in this frozen visit selection. All selected documents need readable written reports."
-          : "Choose the exact observations and records Apertus may organize. It will return source-linked excerpts from this selection."}
+          ? "Apertus can look for follow-up instructions written in these saved records. The text must be readable; it will not create new medical recommendations."
+          : "Choose which notes and records Apertus may use. It will show where each suggestion came from."}
       </p>
       <p>
         Private and unconfirmed until you review. This action does not change
@@ -185,7 +185,7 @@ export default function CareIntelligence({
               )}
               <fieldset>
                 <legend>
-                  Explicit evidence selection · {selected.length}/12
+                  Choose records and notes · {selected.length}/12
                 </legend>
                 {candidates.data?.items.map((item) => {
                   const checked = selected.some(
@@ -209,9 +209,9 @@ export default function CareIntelligence({
                           )
                         }
                       />
-                      {item.title} · {item.kind} · {dateLabel(item.occurrence)}{" "}
-                      · revision {item.revision} ·{" "}
-                      {item.provenance.replaceAll("_", " ")}
+                      {item.title} · {item.kind === "journal" ? "Journal note" : "record"} · {dateLabel(item.occurrence)}{" "}
+                      · version {item.revision} ·{" "}
+                      {item.provenance === "patient_reported" ? "your note" : "from an uploaded record"}
                     </label>
                   );
                 })}
@@ -266,24 +266,24 @@ export default function CareIntelligence({
           {pending.includes(task.state) && (
             <Notice>
               {task.state === "processing"
-                ? "Apertus is working on your selected evidence."
+                  ? "Apertus is reviewing the notes and records you selected. This can take a little while."
                 : task.state === "waiting_model"
-                  ? "Waiting for the configured local model."
-                  : "Request queued for the existing worker."}{" "}
+                  ? "Comfort is waiting for the local Apertus model."
+                  : "Your request is saved and waiting to start."}{" "}
               Your sources are unchanged.
             </Notice>
           )}
           {task.state === "failed" && (
             <Notice tone="error">
-              The request could not complete ({task.error_code}). Your sources
-              are unchanged. A new request requires your action.
+              Comfort could not prepare suggestions this time. Your sources are
+              unchanged. You can keep going without AI or choose to try again
+              later.
             </Notice>
           )}
           {task.result && (
             <>
               <p>
-                {task.coverage.scope} {task.coverage.selected_count} snapshots
-                included; {task.coverage.truncated_sources} shortened.
+                {task.coverage.selected_count} selected items checked; {task.coverage.truncated_sources} were shortened for review.
               </p>
               {task.result.abstained && (
                 <Notice>
@@ -358,7 +358,7 @@ export default function CareIntelligence({
                       )
                     }
                   >
-                    Keep private planning draft
+                    Save these notes for myself
                   </Button>
                   <Button
                     variant="secondary"

@@ -33,8 +33,8 @@ export default function Consultation() {
         eyebrow="MY CARE"
         title={detail.data?.purpose ?? "Prepare for a visit"}
       >
-        Bring chosen information together. It stays private until a separate
-        access grant is approved.
+        Bring together the information you may want for a conversation with a
+        clinician. It stays private until you separately approve access.
       </PageHeader>
       <CareNavigation />
       {packetId ? (
@@ -46,9 +46,9 @@ export default function Consultation() {
           detail.data && (
             <>
               <Notice>
-                Your private visit selection contains {detail.data.items.length}{" "}
-                exact source versions. New uploads and later corrections are not
-                automatically added.
+                This private visit collection contains {detail.data.items.length}{" "}
+                saved record versions. New uploads and later corrections are not
+                added automatically.
               </Notice>
               <div className="record-grid form-section">
                 {detail.data.items.map((item) => (
@@ -80,7 +80,7 @@ export default function Consultation() {
             Choose records for a visit
           </Link>
           <div className="section-heading">
-            <h2>Saved private visit selections</h2>
+            <h2>Records you have set aside for a visit</h2>
           </div>
           {list.isPending ? (
             <Loading />
@@ -102,12 +102,12 @@ export default function Consultation() {
             </div>
           ) : (
             <EmptyState title="Prepare with what matters">
-              Select originals in Records, describe your visit purpose, then
-              save the exact selection.
+              Choose records in Records, add a short note about the visit, then
+              save your private collection.
             </EmptyState>
           )}
           <section className="quiet-section">
-            <h2>Sharing a visit selection</h2>
+            <h2>Sharing information for a visit</h2>
             <p>
               Existing time-limited sharing and contribution tools remain
               available in the earlier interface.

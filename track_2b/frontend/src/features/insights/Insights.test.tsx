@@ -289,7 +289,7 @@ it("preserves a zero score, missing scores and unrecorded dates in the accessibl
   const { container } = setup();
   await screen.findByText("Recorded observations by date");
   await user.click(
-    screen.getByText("View observation data, including unrecorded days"),
+    screen.getByText("Daily counts and scores"),
   );
   const zero = screen.getByRole("row", { name: "2026-10-01 2 1 0" });
   expect(zero).toBeVisible();

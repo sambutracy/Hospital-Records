@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowRight, FilePlus2, HeartHandshake } from "lucide-react";
+import { ArrowRight, BookOpen, ChartNoAxesCombined, FilePlus2, HeartHandshake } from "lucide-react";
 import { usePatient } from "../../services/auth/session";
 import { post } from "../../services/api/client";
 import { recordsSchema } from "../../services/api/contracts";
@@ -48,6 +48,23 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <nav className="home-next-steps" aria-label="What you can do next">
+        <Link to="../journal">
+          <BookOpen size={21} aria-hidden="true" />
+          <span><strong>Write a Journal note</strong><small>Keep a personal observation in your own words.</small></span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </Link>
+        <Link to="../insights">
+          <ChartNoAxesCombined size={21} aria-hidden="true" />
+          <span><strong>Explore your health history</strong><small>See records and observations in date order.</small></span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </Link>
+        <Link to="../care/visits">
+          <HeartHandshake size={21} aria-hidden="true" />
+          <span><strong>Prepare for a visit</strong><small>Choose what you may want to bring along.</small></span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </Link>
+      </nav>
       <div className="section-heading">
         <h2>Recent records</h2>
         <Link to="../records">

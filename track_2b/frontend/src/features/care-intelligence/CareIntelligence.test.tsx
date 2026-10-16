@@ -171,7 +171,7 @@ it("selects exact history revisions, requests once, then keeps an edited private
   await user.clear(field);
   await user.type(field, "My question for the visit.");
   await user.click(
-    screen.getByRole("button", { name: "Keep private planning draft" }),
+    screen.getByRole("button", { name: "Save these notes for myself" }),
   );
   await waitFor(() => expect(posts).toHaveLength(2));
   expect(posts[1].body).toEqual({

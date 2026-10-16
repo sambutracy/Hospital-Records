@@ -4,7 +4,7 @@
 <title>{% block title %}Comfort{% endblock %}</title>
 <link rel="stylesheet" href="{% static 'app.css' %}"></head>
 <body><a class="skip-link" href="#main">Skip to content</a>
-<header class="header"><a class="brand" href="/">Comfort<span>Patient records, connected.</span></a>
+<header class="header"><a class="brand" href="/" aria-label="Comfort home">comfort<span aria-hidden="true">.</span></a>
 {% if user.is_authenticated %}<nav aria-label="Account"><a href="{% url 'workspace_list' %}">My records</a><a href="{% url 'my_profile' %}">My profile</a><a href="{% url 'my_medications' %}">Medications</a><a href="{% url 'received_access' %}">Received access</a></nav><form method="post" action="{% url 'sign_out' %}">{% csrf_token %}<button class="secondary" type="submit">Sign out</button></form>{% endif %}</header>
 <main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
 <footer>Hack Apertus prototype · Synthetic accounts only</footer></body></html>

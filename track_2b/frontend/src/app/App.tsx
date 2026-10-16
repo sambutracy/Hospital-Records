@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cancelPrivateRequests } from "../services/api/client";
 import {
@@ -67,16 +67,22 @@ const navigation = [
   ["records", "Records", Files],
   ["journal", "Journal", BookOpen],
   ["care", "My Care", HeartHandshake],
-  ["insights", "Insights", ChartNoAxesCombined],
+  ["insights", "Health history", ChartNoAxesCombined],
   ["account", "Account & privacy", ShieldCheck],
 ] as const;
 function Shell() {
   const client = useQueryClient();
   const [signingOut, setSigningOut] = useState(false);
+  const [clock, setClock] = useState(() => Date.now());
   const patient = usePatient();
   const session = useSession();
   const navigate = useNavigate();
   const root = `/workspaces/${patient.workspace_id}`;
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 15000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const sessionEndingSoon = session.expires_at * 1000 - clock <= 120000;
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
@@ -89,9 +95,14 @@ function Shell() {
         <p className="rail-intro">A little more continuity.</p>
         <nav aria-label="Main navigation">
           {navigation.map(([path, label, Icon]) => (
-            <NavLink key={path} to={`${root}/${path}`}>
+            <NavLink
+              key={path}
+              to={`${root}/${path}`}
+              end={path === "home"}
+              aria-label={path === "insights" ? "Health history" : label}
+            >
               <Icon aria-hidden="true" size={20} />
-              {label}
+              {path === "account" ? "Account & privacy" : label}
             </NavLink>
           ))}
         </nav>
@@ -103,7 +114,7 @@ function Shell() {
       <div className="shell-body">
         <header className="top-bar">
           <div className="context-control">
-            <label htmlFor="context">Acting context</label>
+            <label htmlFor="context">Viewing records for</label>
             <select
               id="context"
               value={patient.id}
@@ -162,14 +173,27 @@ function Shell() {
             </Button>
           </form>
         </header>
+        {sessionEndingSoon && !signingOut && (
+          <div className="session-expiry-wrap">
+            <Notice tone="warning" live>
+              Your secure session will end soon. Save your work before it ends.
+              Acknowledged Journal drafts can be recovered after you sign in
+              again; changes still marked unsaved may be lost.
+            </Notice>
+          </div>
+        )}
         <nav className="mobile-navigation" aria-label="Mobile main navigation">
-          {navigation.slice(0, 4).map(([path, label, Icon]) => (
-            <NavLink key={path} to={`${root}/${path}`}>
+          {navigation.map(([path, label, Icon]) => (
+            <NavLink
+              key={path}
+              to={`${root}/${path}`}
+              end={path === "home"}
+              aria-label={path === "insights" ? "Health history" : label}
+            >
               <Icon size={20} aria-hidden="true" />
-              {label}
+              <span>{path === "account" ? "Account" : label}</span>
             </NavLink>
           ))}
-          <NavLink to={`${root}/account`}>More</NavLink>
         </nav>
         <main id="main-content" className="main-content" tabIndex={-1}>
           {signingOut ? (
@@ -244,7 +268,7 @@ function Account() {
           Comfort journeys are built.
         </p>
         <div className="stack">
-          <Link to="../insights">Insights · your care timeline</Link>
+          <Link to="../insights">Health history · your care timeline</Link>
           <a href={`/workspaces/${patient.id}/profile/`}>
             Personal profile and care circle{" "}
             <ArrowUpRight size={16} aria-hidden="true" />
