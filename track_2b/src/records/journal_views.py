@@ -4,7 +4,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from . import journal
 from .continuity_views import checked, exact
 from .views import body
-from .models import JournalEvent, JournalDraft
+from .models import JournalEvent, JournalDraft, JournalAIRequest
 
 
 def journal_checked(view):
@@ -74,3 +74,35 @@ def discard(request,workspace_id):
     value=exact(body(request),['expected_revision'])
     journal.discard_draft(request.user,workspace_id,value['expected_revision'])
     return JsonResponse({'discarded':True})
+
+
+@require_http_methods(['GET','POST'])
+@journal_checked
+def ai_requests(request,workspace_id):
+    from . import journal_ai
+    if request.method=='POST':
+        value=exact(body(request),['draft_revision'])
+        try: item=journal_ai.create(request.user,workspace_id,value['draft_revision'])
+        except journal.services.Conflict as error: return JsonResponse({'error':str(error)},status=409)
+        except ValueError as error: return JsonResponse({'error':str(error)},status=400)
+        return JsonResponse(journal_ai.request_payload(item),status=202)
+    journal.authorize(request.user,workspace_id)
+    rows=JournalAIRequest.objects.filter(workspace_id=workspace_id,requested_by=request.user).select_related('task').order_by('-created_at')[:10]
+    return JsonResponse({'requests':[journal_ai.request_payload(row) for row in rows]})
+
+
+@require_http_methods(['GET','POST'])
+@journal_checked
+def ai_request(request,workspace_id,request_id):
+    from . import journal_ai
+    if request.method=='GET':
+        item=journal_ai.get(request.user,workspace_id,request_id)
+        journal.services.audit(request.user,item.workspace,'journal.ai.result_read',item)
+        return JsonResponse(journal_ai.request_payload(item))
+    value=body(request)
+    if not isinstance(value,dict) or set(value)-{'outcome','fields'} or 'outcome' not in value:
+        raise ValueError('Unexpected review fields.')
+    try:
+        result=journal_ai.review(request.user,workspace_id,request_id,value['outcome'],value.get('fields'))
+    except journal.services.Conflict as error: return JsonResponse({'error':str(error)},status=409)
+    return JsonResponse(result)

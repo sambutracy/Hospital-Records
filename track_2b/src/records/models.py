@@ -130,6 +130,61 @@ class JournalDraft(PatientCareNote):
         ]
 
 
+class JournalAIRequest(WorkspaceModel):
+    """Short-lived, patient-triggered interpretation of one saved draft revision."""
+    task = models.OneToOneField('AssistantTask', on_delete=models.PROTECT, related_name='journal_ai')
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    draft = models.ForeignKey(JournalDraft, on_delete=models.PROTECT)
+    draft_revision = models.PositiveIntegerField()
+    event = models.ForeignKey(JournalEvent, null=True, on_delete=models.PROTECT)
+    base_revision = models.PositiveIntegerField(default=0)
+    input_snapshot = models.CharField(max_length=2000)
+    input_sha256 = models.CharField(max_length=64)
+    reference_at = models.DateTimeField()
+    reference_timezone = models.CharField(max_length=64)
+    expires_at = models.DateTimeField()
+    snapshot_released_at = models.DateTimeField(null=True)
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'journal_ai_requests'
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.CheckConstraint(condition=Q(draft_revision__gt=0,base_revision__gte=0), name='journal_ai_request_revision'),
+            models.CheckConstraint(condition=Q(input_sha256__regex=r'^[0-9a-f]{64}$'), name='journal_ai_request_digest'),
+        ]
+
+
+class JournalAIProposal(WorkspaceModel):
+    """Validated but unconfirmed structured suggestions; never a JournalEvent."""
+    request = models.OneToOneField(JournalAIRequest, on_delete=models.PROTECT, related_name='proposal')
+    fields = models.JSONField(null=True)
+    evidence = models.JSONField(default=dict)
+    unknown = models.JSONField(default=list)
+    ambiguities = models.JSONField(default=list)
+    schema_version = models.CharField(max_length=32)
+    model_name = models.CharField(max_length=160)
+    prompt_version = models.CharField(max_length=64)
+    generated_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'journal_ai_proposals'
+
+
+class JournalAIReview(WorkspaceModel):
+    """Patient decision about a proposal, with any published event explicitly linked."""
+    OUTCOMES = [('accepted','accepted'),('edited','edited'),('rejected','rejected'),('abandoned','abandoned')]
+    proposal = models.OneToOneField(JournalAIProposal, on_delete=models.PROTECT, related_name='review')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    outcome = models.CharField(max_length=16, choices=OUTCOMES)
+    event = models.ForeignKey(JournalEvent, null=True, on_delete=models.PROTECT)
+    event_revision = models.PositiveIntegerField(null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    class Meta(WorkspaceModel.Meta):
+        db_table = 'journal_ai_reviews'
+        constraints = WorkspaceModel.Meta.constraints + [
+            models.CheckConstraint(condition=Q(outcome__in=['accepted','edited','rejected','abandoned']), name='journal_ai_review_outcome'),
+            models.CheckConstraint(condition=Q(event__isnull=True,event_revision__isnull=True) | Q(event__isnull=False,event_revision__gt=0), name='journal_ai_review_event_revision'),
+        ]
+
+
 class FacilitySearchCache(models.Model):
     key = models.CharField(max_length=64,primary_key=True)
     results = models.JSONField()
@@ -345,7 +400,7 @@ class AssistantTask(WorkspaceModel):
     class Meta(WorkspaceModel.Meta):
         db_table = 'assistant_tasks'
         constraints = WorkspaceModel.Meta.constraints + [
-            models.CheckConstraint(condition=Q(kind__in=['search','packet_overview','explain_term']), name='assistant_kind'),
+            models.CheckConstraint(condition=Q(kind__in=['search','packet_overview','explain_term','journal_interpretation']), name='assistant_kind'),
             models.CheckConstraint(condition=Q(state__in=['queued','processing','waiting_model','completed','failed']), name='assistant_state'),
             models.CheckConstraint(condition=Q(kind='packet_overview',packet_revision__isnull=False) | (~Q(kind='packet_overview') & Q(packet_revision__isnull=True)), name='assistant_packet_scope'),
             models.CheckConstraint(condition=Q(state='completed',result__isnull=False) | (~Q(state='completed') & Q(result__isnull=True)), name='assistant_result_state'),

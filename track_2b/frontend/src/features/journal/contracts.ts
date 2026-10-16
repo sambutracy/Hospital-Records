@@ -58,6 +58,42 @@ export const draftSchema = z.object({
     })
     .nullable(),
 });
+const aiEvidenceSchema = z.record(
+  z.string(),
+  z.object({ quote: z.string(), start: z.number().int(), end: z.number().int() }),
+);
+export const journalAIRequestSchema = z.object({
+  id: uuid,
+  draft_revision: z.number().int().positive(),
+  state: z.enum(["queued", "processing", "waiting_model", "completed", "failed"]),
+  error_code: z.string().nullable(),
+  created_at: z.string(),
+  started_at: z.string().nullable(),
+  finished_at: z.string().nullable(),
+  model: z.string().nullable(),
+  prompt_version: z.string().nullable(),
+  latency_seconds: z.number().nullable(),
+  queue_wait_seconds: z.number().nullable(),
+  inference_seconds: z.number().nullable(),
+  validation_seconds: z.number().nullable(),
+  stale: z.boolean(),
+  expired: z.boolean(),
+  review: z.enum(["accepted", "edited", "rejected", "abandoned"]).nullable(),
+  proposal: z.object({
+    fields: fieldsSchema,
+    evidence: aiEvidenceSchema,
+    unknown: z.array(z.string()),
+    ambiguities: z.array(z.string()),
+    schema_version: z.string(),
+    model: z.string(),
+    generated_at: z.string(),
+    expires_at: z.string(),
+    review: z.enum(["accepted", "edited", "rejected", "abandoned"]).nullable(),
+  }).nullable(),
+});
+export const journalAIRequestsSchema = z.object({
+  requests: z.array(journalAIRequestSchema),
+});
 export const historySchema = z.object({
   contract_version: z.literal(1),
   truncated: z.boolean(),

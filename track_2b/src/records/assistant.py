@@ -32,6 +32,9 @@ def digest(value):
 
 
 def authority(user, workspace_id, kind, lock=False):
+    if kind=='journal_interpretation':
+        from .journal import authorize as authorize_journal
+        return authorize_journal(user,workspace_id,lock=lock),None
     result=authorize(user,workspace_id,lock=lock)
     if kind=='packet_overview':
         authorize(user,workspace_id,'prepare_packet',lock=lock)

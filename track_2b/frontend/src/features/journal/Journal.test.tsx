@@ -25,6 +25,7 @@ import {
 configure({ asyncUtilTimeout: 5000 });
 const id = "77777777-7777-4777-8777-777777777777";
 const concernId = "88888888-8888-4888-8888-888888888888";
+const aiId = "99999999-9999-4999-8999-999999999999";
 const timestamp = "2026-10-16T09:00:00Z";
 function HistoryControls() {
   const navigate = useNavigate();
@@ -74,10 +75,13 @@ function setup(
     expected_revision: number;
     values: JournalEvent["values"];
     status: JournalEvent["status"];
+    draft_revision?: number;
+    outcome?: "accepted" | "edited" | "rejected" | "abandoned";
   };
   const writes: Array<{ path: string; data: Payload }> = [];
   let conflict = options.fail === "conflict";
   let draftConflict = options.fail === "draft-conflict";
+  let aiPayload: Record<string, unknown> | null = null;
   vi.spyOn(globalThis, "fetch").mockImplementation(async (path, init) => {
     const url = String(path),
       data: Payload | null = init?.body ? JSON.parse(String(init.body)) : null;
@@ -128,6 +132,86 @@ function setup(
           ],
         }),
       );
+    if (url.endsWith("/journal/ai/requests/")) {
+      if (!data) return new Response(JSON.stringify({ requests: aiPayload ? [aiPayload] : [] }));
+      const draftRevision = data.draft_revision ?? stored.draft?.revision ?? 0;
+      aiPayload = {
+        id: aiId,
+        draft_revision: draftRevision,
+        state: "queued",
+        error_code: null,
+        created_at: timestamp,
+        started_at: null,
+        finished_at: null,
+        model: null,
+        prompt_version: null,
+        latency_seconds: null,
+        queue_wait_seconds: null,
+        inference_seconds: null,
+        validation_seconds: null,
+        stale: false,
+        expired: false,
+        review: null,
+        proposal: null,
+      };
+      return new Response(JSON.stringify(aiPayload), { status: 202 });
+    }
+    if (url.endsWith(`/journal/ai/requests/${aiId}/`)) {
+      if (data && aiPayload) {
+        if (data.outcome === "accepted" || data.outcome === "edited") {
+          stored.draft = {
+            id,
+            revision: (stored.draft?.revision ?? 0) + 1,
+            event_id: null,
+            base_revision: 0,
+            fields: data.fields!,
+            updated_at: timestamp,
+          };
+        }
+        aiPayload = {
+          ...(aiPayload as Record<string, unknown>),
+          stale: data.outcome === "accepted" || data.outcome === "edited",
+          review: data.outcome,
+          proposal: null,
+        };
+        return new Response(JSON.stringify(aiPayload));
+      }
+      aiPayload = {
+        ...(aiPayload as Record<string, unknown>),
+        state: "completed",
+        started_at: timestamp,
+        finished_at: timestamp,
+        model: "Apertus v1.5 8B",
+        prompt_version: "journal-interpretation-v1",
+        latency_seconds: 0.8,
+        queue_wait_seconds: 0.1,
+        inference_seconds: 0.7,
+        validation_seconds: 0.01,
+        proposal: {
+          fields: {
+            ...initialFields(localDay(), "symptom"),
+            description: stored.draft?.fields.description ?? "Headache and pain was 6/10.",
+            precision: "unknown",
+            year: "",
+            month: "",
+            day: "",
+            severity: "6",
+          },
+          evidence: {
+            category: { quote: "Headache", start: 0, end: 8 },
+            severity: { quote: "6/10", start: 17, end: 21 },
+          },
+          unknown: ["Medication name"],
+          ambiguities: [],
+          schema_version: "journal-proposal-v1",
+          model: "Apertus v1.5 8B",
+          generated_at: timestamp,
+          expires_at: "2026-10-23T09:00:00Z",
+          review: null,
+        },
+      };
+      return new Response(JSON.stringify(aiPayload));
+    }
     if (data) writes.push({ path: url, data });
     if (url.endsWith("/journal/draft/")) {
       if (data) {
@@ -390,6 +474,27 @@ it("keeps a private recovery draft without publishing and resumes it after a fre
   expect(localStorage.length).toBe(0);
   expect(sessionStorage.length).toBe(0);
 }, 15000);
+
+it("reviews Apertus suggestions into the private draft and publishes only after Save", async () => {
+  const user = userEvent.setup();
+  const { stored } = setup();
+  await user.click(await screen.findByRole("button", { name: "Add observation" }));
+  await user.type(screen.getByLabelText("Your note"), "Headache and pain was 6/10.");
+  await user.click(screen.getByRole("button", { name: "Organize with Apertus" }));
+  await screen.findByRole("heading", { name: "Suggestions to review" }, { timeout: 8000 });
+  expect(stored.items).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "Copy selected suggestions to draft" }));
+  await waitFor(() => expect(stored.draft?.revision).toBe(2));
+  await screen.findByText(/Suggestions copied to your private draft/);
+  expect(screen.getByLabelText("What would you like to record?")).toHaveValue("symptom");
+  expect(stored.items).toHaveLength(0);
+  await user.click(screen.getByRole("button", { name: "Save observation" }));
+  await screen.findByText("Observation saved privately.");
+  expect(stored.items).toHaveLength(1);
+  expect(stored.items[0].values.category).toBe("symptom");
+  expect(stored.items[0].values.severity).toBe(6);
+  expect(stored.items[0].values.description).toBe("Headache and pain was 6/10.");
+}, 20000);
 
 it("preserves writing on a revision conflict and requires review before a new correction", async () => {
   const user = userEvent.setup();

@@ -12,6 +12,8 @@ import {
 import type { Concern } from "../care/contracts";
 import {
   draftSchema,
+  journalAIRequestSchema,
+  journalAIRequestsSchema,
   dateLabel,
   eventSchema,
   toValues,
@@ -62,6 +64,11 @@ export default function Editor({
   const [latest, setLatest] = useState<JournalEvent | null>(null);
   const [otherDraft, setOtherDraft] = useState<Draft | null>(null);
   const [expiry, setExpiry] = useState(false);
+  const [aiRequest, setAiRequest] = useState<z.infer<typeof journalAIRequestSchema> | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiApplying, setAiApplying] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiSelected, setAiSelected] = useState<Record<string, boolean>>({});
   const latestFields = useRef(fields),
     draftRevision = useRef(recovery?.revision ?? 0),
     baseRev = useRef(revision);
@@ -89,6 +96,26 @@ export default function Editor({
       mounted.current = false;
     };
   }, [base, cache, remember]);
+  useEffect(() => {
+    let active = true;
+    void api(base + "ai/requests/", journalAIRequestsSchema)
+      .then(({ requests }) => {
+        const saved = requests.find((item) => item.draft_revision === draftRevision.current);
+        if (active && saved) setAiRequest(saved);
+      })
+      .catch(() => { /* AI history is optional; the manual editor remains available. */ });
+    return () => { active = false; };
+  }, [base]);
+  useEffect(() => {
+    if (!aiRequest || !["queued", "processing", "waiting_model"].includes(aiRequest.state)) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      void api(base + `ai/requests/${aiRequest.id}/`, journalAIRequestSchema)
+        .then((value) => { if (active) setAiRequest(value); })
+        .catch((failure) => { if (active) setAiError(failure instanceof Error ? failure.message : "We could not check the request."); });
+    }, 2000);
+    return () => { active = false; clearTimeout(timer); };
+  }, [base, aiRequest]);
   const flush = useCallback(async () => {
     while (pending.current) await pending.current;
     const snapshot = JSON.stringify(latestFields.current);
@@ -237,6 +264,76 @@ export default function Editor({
       if (mounted.current) setBusy(false);
     }
   };
+  const organizeWithAI = async () => {
+    setAiError("");
+    setAiBusy(true);
+    try {
+      await flush();
+      if (ack.current !== JSON.stringify(latestFields.current)) throw new Error("Wait for your private draft to finish saving, then try again.");
+      const response = await post(base + "ai/requests/", journalAIRequestSchema, {
+        draft_revision: draftRevision.current,
+      });
+      setAiRequest(response);
+      setAiSelected({});
+    } catch (failure) {
+      setAiError(failure instanceof Error ? failure.message : "Apertus could not start this request.");
+    } finally {
+      if (mounted.current) setAiBusy(false);
+    }
+  };
+  const applyAIProposal = async () => {
+    if (!aiRequest?.proposal || aiRequest.stale || aiRequest.expired) return;
+    setAiBusy(true);
+    setAiApplying(true);
+    setAiError("");
+    try {
+      const next = { ...latestFields.current };
+      const proposed = aiRequest.proposal.fields;
+      if (aiSelected.category ?? true) next.category = proposed.category;
+      if (aiSelected.occurrence ?? true) {
+        next.precision = proposed.precision;
+        next.year = proposed.year;
+        next.month = proposed.month;
+        next.day = proposed.day;
+      }
+      if (aiSelected.time ?? true) { next.time = proposed.time; next.fold = ""; }
+      if (aiSelected.severity ?? true) next.severity = proposed.severity;
+      if (next.category === "note") next.severity = "";
+      const outcome = JSON.stringify(next) === JSON.stringify(proposed) ? "accepted" : "edited";
+      const reviewed = await post(base + `ai/requests/${aiRequest.id}/`, journalAIRequestSchema, {
+        outcome,
+        fields: next,
+      });
+      const saved = await api(base + "draft/", draftSchema);
+      if (saved.draft) {
+        latestFields.current = saved.draft.fields;
+        setFields(saved.draft.fields);
+        draftRevision.current = saved.draft.revision;
+        acknowledgedDraft.current = saved.draft;
+        ack.current = JSON.stringify(saved.draft.fields);
+        setDirty(false);
+        remember();
+      }
+      setAiRequest(reviewed);
+      setStatus("Suggestions copied to your private draft. Review them, then save when ready.");
+    } catch (failure) {
+      setAiError(failure instanceof Error ? failure.message : "We could not apply those suggestions.");
+    } finally {
+      if (mounted.current) { setAiBusy(false); setAiApplying(false); }
+    }
+  };
+  const reviewAIProposal = async (outcome: "rejected" | "abandoned") => {
+    if (!aiRequest) return;
+    setAiBusy(true);
+    setAiError("");
+    try {
+      setAiRequest(await post(base + `ai/requests/${aiRequest.id}/`, journalAIRequestSchema, { outcome }));
+    } catch (failure) {
+      setAiError(failure instanceof Error ? failure.message : "We could not save your review.");
+    } finally {
+      if (mounted.current) setAiBusy(false);
+    }
+  };
   return (
     <section
       className="panel journal-editor"
@@ -365,7 +462,7 @@ export default function Editor({
           void publish();
         }}
       >
-        <fieldset className="care-fields" disabled={busy}>
+        <fieldset className="care-fields" disabled={busy || aiApplying}>
           <SelectField
             id="journal-category"
             label="What would you like to record?"
@@ -391,6 +488,36 @@ export default function Editor({
             }}
           />
           <small>{fields.description.length} / 2,000 characters</small>
+          <section className="journal-ai-review" aria-label="Optional Apertus assistance">
+            <Button variant="secondary" isDisabled={aiBusy || busy || !fields.description.trim()} onPress={() => void organizeWithAI()}>
+              {aiBusy ? "Working…" : "Organize with Apertus"}
+            </Button>
+            <p>Only the text in this saved draft is sent to your configured Apertus model. It will suggest fields for you to review; it will not save a Journal observation.</p>
+            {aiError && <Notice tone="error" live>{aiError}</Notice>}
+            {aiRequest && <p role="status">Apertus request: {aiRequest.state === "waiting_model" ? "waiting for the local model" : aiRequest.state.replaceAll("_", " ")}{aiRequest.latency_seconds !== null ? ` · ${aiRequest.latency_seconds.toFixed(1)} seconds` : ""}{aiRequest.error_code ? ` · ${aiRequest.error_code}` : ""}</p>}
+            {aiRequest?.proposal && aiRequest.proposal.review === null && (
+              <div className="journal-ai-proposal">
+                <h3>Suggestions to review</h3>
+                {aiRequest.stale ? <Notice tone="warning">Your draft changed after this request. Keep the current writing and ask Apertus to organize it again.</Notice> : null}
+                {aiRequest.expired ? <Notice tone="warning">This proposal has expired. Ask Apertus again to review a fresh result.</Notice> : null}
+                <p>Your original text is preserved: “{aiRequest.proposal.fields.description}”</p>
+                {aiRequest.proposal.ambiguities.length > 0 && <p>Needs your judgment: {aiRequest.proposal.ambiguities.join("; ")}</p>}
+                {Object.entries({ category: "Entry type", occurrence: "Date or time period", time: "Time", severity: "Severity" }).filter(([key]) => Boolean(aiRequest.proposal!.evidence[key])).map(([key, label]) => (
+                  <label key={key} className="journal-ai-choice">
+                    <input type="checkbox" checked={aiSelected[key] ?? true} onChange={(event) => setAiSelected((current) => ({ ...current, [key]: event.target.checked }))} disabled={aiRequest.stale || aiRequest.expired || aiBusy} />
+                    Use suggested {label.toLowerCase()}: {key === "category" ? aiRequest.proposal!.fields.category : key === "occurrence" ? `${aiRequest.proposal!.fields.precision} ${aiRequest.proposal!.fields.year}${aiRequest.proposal!.fields.month ? `-${aiRequest.proposal!.fields.month}` : ""}${aiRequest.proposal!.fields.day ? `-${aiRequest.proposal!.fields.day}` : ""}` : key === "time" ? aiRequest.proposal!.fields.time : `${aiRequest.proposal!.fields.severity}/10`}
+                    <span>Supported by “{aiRequest.proposal!.evidence[key].quote}”</span>
+                  </label>
+                ))}
+                {aiRequest.proposal.unknown.length > 0 && <p>Not recorded because it was not clear: {aiRequest.proposal.unknown.join("; ")}</p>}
+                {!aiRequest.stale && !aiRequest.expired && <div className="actions">
+                  <Button variant="secondary" isDisabled={aiBusy} onPress={() => void applyAIProposal()}>Copy selected suggestions to draft</Button>
+                  <Button variant="secondary" isDisabled={aiBusy} onPress={() => void reviewAIProposal("rejected")}>Reject suggestions</Button>
+                </div>}
+              </div>
+            )}
+            {aiRequest?.review && <p role="status">You {aiRequest.review} these suggestions. Your Journal entry is still unpublished.</p>}
+          </section>
           <fieldset className="care-date">
             <legend>When it happened</legend>
             <SelectField

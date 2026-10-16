@@ -24,6 +24,7 @@ class Command(BaseCommand):
         self.instance=uuid.uuid4().hex
         self.kind=options['kind']
         self.assistant_burst=0
+        self.last_ai_cleanup=0
         try:self.run_loop(options)
         finally:worker_health.beat(self.instance,self.kind,'stopped')
 
@@ -32,6 +33,10 @@ class Command(BaseCommand):
             Path('/tmp/records-worker-heartbeat').touch()
             worker_health.beat(self.instance,self.kind)
             now=timezone.now()
+            if time.monotonic()-self.last_ai_cleanup>=3600:
+                from records.journal_ai import expire_old
+                expire_old()
+                self.last_ai_cleanup=time.monotonic()
             expired=IngestionJob.objects.filter(state='processing',lease_expires_at__lte=now)
             for job in expired:
                 finish_failure(job.pk,job.lease_token,'worker_interrupted')

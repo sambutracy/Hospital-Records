@@ -8,6 +8,8 @@
 src/staticfiles
 docs
 data/*
+!data/journal-ai-v1/
+!data/journal-ai-v1/**
 !data/comfort-evaluation-v1.json
 !data/comfort-evaluation-v2.json
 .git

@@ -1006,6 +1006,37 @@ fieldset legend {
 .journal-editor .actions {
   margin-top: 20px;
 }
+.journal-ai-review {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin: 16px 0 24px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.journal-ai-review > p,
+.journal-ai-proposal p {
+  margin: 0;
+}
+.journal-ai-proposal {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+.journal-ai-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 4px 10px;
+}
+.journal-ai-choice span {
+  grid-column: 2;
+  color: var(--color-muted);
+}
 .journal-history {
   padding-left: 24px;
 }
