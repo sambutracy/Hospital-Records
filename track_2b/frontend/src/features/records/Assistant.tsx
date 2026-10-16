@@ -8,6 +8,7 @@ import {
   type AssistantTask,
 } from "../../services/api/contracts";
 import { Button, Notice } from "../../design-system/primitives";
+import TaskHistory from "./TaskHistory";
 const pending = new Set(["queued", "processing", "waiting_model"]);
 export function TaskCard({
   task,
@@ -30,7 +31,7 @@ export function TaskCard({
   });
   const result = task.result;
   return (
-    <article className="panel stack">
+    <article className="panel stack assistant-task">
       <h3>
         {task.kind === "search"
           ? "Related-record search"
@@ -41,13 +42,6 @@ export function TaskCard({
       {task.kind === "search" && task.query && (
         <p>
           Search: <strong>{task.query}</strong>
-        </p>
-      )}
-      {task.created_at && (
-        <p>
-          <time dateTime={task.created_at}>
-            Requested {new Date(task.created_at).toLocaleString()}
-          </time>
         </p>
       )}
       <Notice tone={task.state === "failed" ? "warning" : "info"} live>
@@ -79,13 +73,6 @@ export function TaskCard({
           your health history.
         </p>
       )}
-      {task.state === "completed" &&
-        typeof task.latency_seconds === "number" && (
-          <p>
-            Completed in {Math.max(1, Math.round(task.latency_seconds))} seconds
-            of processing.
-          </p>
-        )}
       {task.sources.some(
         (source) =>
           !source.current_version || source.metadata_changed_since_request,
@@ -95,12 +82,6 @@ export function TaskCard({
           draft still refers to its saved source versions.
         </Notice>
       )}
-      <p>
-        {typeof task.coverage.included_records === "number"
-          ? `${task.coverage.included_records} source records included. `
-          : ""}
-        This request uses a bounded snapshot, not your complete health history.
-      </p>
       {result?.abstained && (
         <p>
           No supported answer was returned. This does not establish that your
@@ -108,7 +89,7 @@ export function TaskCard({
         </p>
       )}
       {result?.representation === "source_excerpts" && (
-        <p>
+        <p className="assistant-excerpt-intro">
           Apertus selected these exact source excerpts. Review the originals for
           context; this is not a complete summary.
           {result.evidence_coverage &&
@@ -116,7 +97,10 @@ export function TaskCard({
         </p>
       )}
       {(result?.matches ?? []).map((match, index) => (
-        <section key={index}>
+        <section key={index} className="assistant-result">
+          <span className="assistant-interpretation-label">
+            AI selection note
+          </span>
           <p>{match.reason}</p>
           {match.citations.map((citation, i) => (
             <blockquote key={i} className="quote">
@@ -129,7 +113,7 @@ export function TaskCard({
         </section>
       ))}
       {(result?.items ?? []).map((item, index) => (
-        <section key={index}>
+        <section key={index} className="assistant-result">
           {result?.representation === "source_excerpts" ? (
             <blockquote className="quote">
               {item.citations.map((citation, i) => (
@@ -143,6 +127,9 @@ export function TaskCard({
             </blockquote>
           ) : (
             <>
+              <span className="assistant-interpretation-label">
+                AI-generated draft
+              </span>
               <p>{item.text}</p>
               {item.citations.map((citation, i) => (
                 <blockquote className="quote" key={i}>
@@ -156,6 +143,30 @@ export function TaskCard({
           )}
         </section>
       ))}
+      <details className="assistant-request-details">
+        <summary>Request details</summary>
+        {task.created_at && (
+          <p>
+            <time dateTime={task.created_at}>
+              Requested {new Date(task.created_at).toLocaleString()}
+            </time>
+          </p>
+        )}
+        {task.state === "completed" &&
+          typeof task.latency_seconds === "number" && (
+            <p>
+              Completed in {Math.max(1, Math.round(task.latency_seconds))}{" "}
+              seconds of processing.
+            </p>
+          )}
+        <p>
+          {typeof task.coverage.included_records === "number"
+            ? `${task.coverage.included_records} source records included. `
+            : ""}
+          This request uses a bounded snapshot, not your complete health
+          history.
+        </p>
+      </details>
       {pending.has(task.state) && (
         <Button
           variant="secondary"
@@ -294,21 +305,19 @@ export default function Assistant({
         </Notice>
       )}
       {tasks.isError && <Notice tone="error">{tasks.error.message}</Notice>}
-      <div className="task-list">
-        {tasks.data?.tasks
-          .filter((task) =>
-            packetId
-              ? task.kind === "packet_overview" && task.packet_id === packetId
-              : task.kind === "search",
-          )
-          .map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              workerAvailable={status.data?.worker?.available}
-            />
-          ))}
-      </div>
+      <TaskHistory
+        tasks={(tasks.data?.tasks ?? []).filter((task) =>
+          packetId
+            ? task.kind === "packet_overview" && task.packet_id === packetId
+            : task.kind === "search",
+        )}
+        renderTask={(task) => (
+          <TaskCard
+            task={task}
+            workerAvailable={status.data?.worker?.available}
+          />
+        )}
+      />
     </section>
   );
 }

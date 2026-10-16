@@ -287,10 +287,8 @@ it("opens the exact private Journal observation from the mixed timeline", async 
 it("preserves a zero score, missing scores and unrecorded dates in the accessible data table", async () => {
   const user = userEvent.setup();
   const { container } = setup();
-  await screen.findByText("Recorded observations by date");
-  await user.click(
-    screen.getByText("Daily counts and scores"),
-  );
+  await screen.findByText("Entries by day");
+  await user.click(screen.getByText("Daily counts and scores"));
   const zero = screen.getByRole("row", { name: "2026-10-01 2 1 0" });
   expect(zero).toBeVisible();
   expect(
@@ -298,9 +296,7 @@ it("preserves a zero score, missing scores and unrecorded dates in the accessibl
       name: "2026-10-02 No entries recorded 0 Not recorded",
     }),
   ).toBeVisible();
-  expect(
-    screen.getByText(/Blank days do not mean symptom-free days/),
-  ).toBeVisible();
+  expect(screen.getByText(/Blank days don't mean symptom-free/)).toBeVisible();
   const audit = await axe.run(container, {
     rules: { "color-contrast": { enabled: false } },
   });
@@ -387,16 +383,14 @@ it("paginates history and recovers from a timeline error", async () => {
 it("keeps empty history and insufficient data truthful", async () => {
   setup({ empty: true });
   expect(
-    await screen.findByText(/not yet observations on three different dates/),
+    await screen.findByText(/Fewer than three dates have entries/),
   ).toBeVisible();
   expect(
     await screen.findByRole("heading", {
       name: "Nothing recorded in this view",
     }),
   ).toBeVisible();
-  expect(
-    screen.queryByText("Recorded observations by date"),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText("Entries by day")).not.toBeInTheDocument();
 });
 
 it("does not fetch private Insights without the required acting capability", async () => {

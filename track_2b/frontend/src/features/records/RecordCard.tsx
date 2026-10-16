@@ -48,6 +48,13 @@ export function RecordCard({
   onSelect?: (checked: boolean) => void;
   selectionDisabled?: boolean;
 }) {
+  const reviewed = record.metadata.revision > 0;
+  const values = record.metadata.values;
+  const title =
+    reviewed && values.document_type
+      ? typeLabel(values.document_type)
+      : "Health record";
+  const filename = record.current_version.original_filename;
   return (
     <article className="record-card">
       <div className="record-card-top">
@@ -55,7 +62,7 @@ export function RecordCard({
           <FileText size={22} aria-hidden="true" />
         </div>
         <span className="badge">
-          {record.metadata.revision > 0 ? (
+          {reviewed ? (
             <>
               <CheckCircle2 size={14} aria-hidden="true" />
               Details reviewed
@@ -68,20 +75,27 @@ export function RecordCard({
           )}
         </span>
       </div>
-      <h3>
-        <Link to={`../records/${record.id}`}>
-          {record.current_version.original_filename}
+      <h3 className="record-card-title">
+        <Link
+          to={`../records/${record.id}`}
+          aria-label={`${title} · ${filename}`}
+        >
+          {title}
         </Link>
       </h3>
-      <p>
-        {typeLabel(record.metadata.values.document_type)} ·{" "}
-        {partialDate(record.metadata.values.document_date)}
+      <p className="record-card-date">
+        {partialDate(reviewed ? values.document_date : null)}
       </p>
-      <p>
-        {record.metadata.values.facility_name ??
+      <p className="record-card-facility">
+        {(reviewed ? values.facility_name : null) ??
           "Issuing facility not recorded"}
       </p>
-      <p>{processingLabel(record.jobs[0]?.state ?? "")}</p>
+      <p className="record-card-filename" title={filename}>
+        {filename}
+      </p>
+      <p className="record-card-status">
+        {processingLabel(record.jobs[0]?.state ?? "")}
+      </p>
       {onSelect && (
         <label className="checkbox">
           <input

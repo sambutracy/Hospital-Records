@@ -46,31 +46,40 @@ export default function Consultation() {
           detail.data && (
             <>
               <Notice>
-                This private visit collection contains {detail.data.items.length}{" "}
-                saved record versions. New uploads and later corrections are not
-                added automatically.
+                This private visit collection contains{" "}
+                {detail.data.items.length} saved record versions. New uploads
+                and later corrections are not added automatically.
               </Notice>
-              <div className="record-grid form-section">
-                {detail.data.items.map((item) => (
-                  <article className="record-card" key={item.source_version.id}>
-                    <h3>{item.source_version.original_filename}</h3>
-                    <p>
-                      {typeLabel(item.metadata.document_type)} ·{" "}
-                      {partialDate(item.metadata.document_date)}
-                    </p>
-                    <p>
-                      {item.metadata.facility_name ??
-                        "Issuing facility unknown"}
-                    </p>
-                    <a href={item.source_version.download_url}>
-                      Download selected original · version{" "}
-                      {item.source_version.version_number}
-                    </a>
-                  </article>
-                ))}
-              </div>
+              <details className="consultation-sources form-section">
+                <summary>Selected records ({detail.data.items.length})</summary>
+                <div className="record-grid">
+                  {detail.data.items.map((item) => (
+                    <article
+                      className="record-card"
+                      key={item.source_version.id}
+                    >
+                      <h3>{item.source_version.original_filename}</h3>
+                      <p>
+                        {typeLabel(item.metadata.document_type)} ·{" "}
+                        {partialDate(item.metadata.document_date)}
+                      </p>
+                      <p>
+                        {item.metadata.facility_name ??
+                          "Issuing facility unknown"}
+                      </p>
+                      <a href={item.source_version.download_url}>
+                        Download selected original · version{" "}
+                        {item.source_version.version_number}
+                      </a>
+                    </article>
+                  ))}
+                </div>
+              </details>
               <Assistant packetId={packetId} />
-              {patient.capabilities.includes("manage_profile")&&patient.capabilities.includes("prepare_packet")&&<CareIntelligence key={packetId} packetId={packetId} />}
+              {patient.capabilities.includes("manage_profile") &&
+                patient.capabilities.includes("prepare_packet") && (
+                  <CareIntelligence key={packetId} packetId={packetId} />
+                )}
             </>
           )
         )

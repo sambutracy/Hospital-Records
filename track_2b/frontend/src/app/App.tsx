@@ -8,6 +8,7 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -29,6 +30,7 @@ import {
   PageHeader,
 } from "../design-system/primitives";
 import Home from "../features/home/Home";
+import MobileNavigation from "./MobileNavigation";
 const Records = lazy(() => import("../features/records/Records"));
 const Detail = lazy(() => import("../features/records/Detail"));
 const Consultation = lazy(() => import("../features/care/Consultation"));
@@ -77,7 +79,12 @@ function Shell() {
   const patient = usePatient();
   const session = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const root = `/workspaces/${patient.workspace_id}`;
+  const currentSection =
+    navigation.find(([path]) =>
+      location.pathname.startsWith(`${root}/${path}`),
+    )?.[1] ?? "Workspace";
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 15000);
     return () => window.clearInterval(timer);
@@ -182,19 +189,24 @@ function Shell() {
             </Notice>
           </div>
         )}
-        <nav className="mobile-navigation" aria-label="Mobile main navigation">
-          {navigation.map(([path, label, Icon]) => (
-            <NavLink
-              key={path}
-              to={`${root}/${path}`}
-              end={path === "home"}
-              aria-label={path === "insights" ? "Health history" : label}
-            >
-              <Icon size={20} aria-hidden="true" />
-              <span>{path === "account" ? "Account" : label}</span>
-            </NavLink>
-          ))}
-        </nav>
+        <MobileNavigation currentSection={currentSection}>
+          <nav
+            className="mobile-navigation"
+            aria-label="Mobile main navigation"
+          >
+            {navigation.map(([path, label, Icon]) => (
+              <NavLink
+                key={path}
+                to={`${root}/${path}`}
+                end={path === "home"}
+                aria-label={path === "insights" ? "Health history" : label}
+              >
+                <Icon size={20} aria-hidden="true" />
+                <span>{path === "account" ? "Account" : label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </MobileNavigation>
         <main id="main-content" className="main-content" tabIndex={-1}>
           {signingOut ? (
             <Loading>Signing out securely…</Loading>

@@ -1,6 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { ArrowRight, BookOpen, ChartNoAxesCombined, FilePlus2, HeartHandshake } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  ChartNoAxesCombined,
+  FilePlus2,
+  HeartHandshake,
+} from "lucide-react";
 import { usePatient } from "../../services/auth/session";
 import { post } from "../../services/api/client";
 import { recordsSchema } from "../../services/api/contracts";
@@ -23,16 +29,14 @@ export default function Home() {
       <PageHeader
         eyebrow="MY HEALTH"
         title={`Hello, ${patient.patient_display_name}.`}
-      >
-        Your history, kept together. Start with what you need today.
-      </PageHeader>
-      <div className="home-intro">
+      />
+      <section className="home-intro" aria-labelledby="home-intro-title">
         <div>
-          <p className="eyebrow">A calmer next visit</p>
-          <h2>Bring your health story with you.</h2>
+          <p className="eyebrow">Your personal health workspace</p>
+          <h2 id="home-intro-title">Bring your health story with you.</h2>
           <p>
-            Save your originals, review their details and choose the information
-            that matters for a visit.
+            Keep your records and observations together, ready for your next
+            visit.
           </p>
           <Link className="button button--primary" to="../records">
             <FilePlus2 size={18} aria-hidden="true" />
@@ -47,21 +51,30 @@ export default function Home() {
             <HeartHandshake size={55} />
           </div>
         </div>
-      </div>
+      </section>
       <nav className="home-next-steps" aria-label="What you can do next">
         <Link to="../journal">
           <BookOpen size={21} aria-hidden="true" />
-          <span><strong>Write a Journal note</strong><small>Keep a personal observation in your own words.</small></span>
+          <span>
+            <strong>Write a Journal note</strong>
+            <small>Capture how you feel, in your own words.</small>
+          </span>
           <ArrowRight size={18} aria-hidden="true" />
         </Link>
         <Link to="../insights">
           <ChartNoAxesCombined size={21} aria-hidden="true" />
-          <span><strong>Explore your health history</strong><small>See records and observations in date order.</small></span>
+          <span>
+            <strong>Explore your health history</strong>
+            <small>Follow your records and observations over time.</small>
+          </span>
           <ArrowRight size={18} aria-hidden="true" />
         </Link>
         <Link to="../care/visits">
           <HeartHandshake size={21} aria-hidden="true" />
-          <span><strong>Prepare for a visit</strong><small>Choose what you may want to bring along.</small></span>
+          <span>
+            <strong>Prepare for a visit</strong>
+            <small>Bring the information that matters to you.</small>
+          </span>
           <ArrowRight size={18} aria-hidden="true" />
         </Link>
       </nav>
@@ -82,24 +95,16 @@ export default function Home() {
           ))}
         </div>
       ) : (
-        <section className="panel">
+        <section className="panel home-empty-records">
           <h3>Ready when you are</h3>
           <p>
-            You have no saved records yet. Add a report, prescription, image
-            export or DICOM original.
+            Your first record can be a report, prescription or medical image.
           </p>
         </section>
       )}
-      <section className="quiet-section">
-        <h2>You stay in control</h2>
-        <p>
-          Saving a record does not share it. Reviewing document details does not
-          make them clinically verified.
-        </p>
-        <Link to="../care/visits">
-          Prepare for a visit <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-      </section>
+      <p className="home-privacy-note">
+        Your saved records stay private until you choose to share them.
+      </p>
     </>
   );
 }

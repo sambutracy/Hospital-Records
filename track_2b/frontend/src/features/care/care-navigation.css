@@ -1,0 +1,58 @@
+.care-navigation.care-navigation--compact {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  padding: 5px;
+  margin: 0 0 28px;
+  background: #edf1eb;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow-x: auto;
+}
+.care-navigation--compact a {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--color-muted);
+  font-size: 1rem;
+  white-space: nowrap;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+.care-navigation--compact a:hover {
+  color: var(--color-primary);
+  background: #fffefa99;
+  text-decoration: none;
+}
+.care-navigation--compact a.active {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  box-shadow: 0 2px 4px #1d323008;
+}
+.care-navigation--compact a:focus-visible {
+  outline-offset: -3px;
+}
+@media (max-width: 640px) {
+  .care-navigation.care-navigation--compact {
+    width: 100%;
+    margin-bottom: 24px;
+  }
+  .care-navigation.care-navigation--compact a {
+    flex: 0 0 auto;
+    padding-inline: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .care-navigation--compact a {
+    transition: none;
+  }
+}

@@ -1,0 +1,66 @@
+/* Compact native disclosure keeps the workspace menu out of the writing area. */
+.workspace-menu {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .workspace-menu {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #fbfaf5;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .workspace-menu > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 12px 18px;
+    color: var(--color-primary);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .workspace-menu > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .workspace-menu-current {
+    margin-left: auto;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    font-weight: 400;
+  }
+
+  .workspace-menu[open] .workspace-menu-chevron {
+    transform: rotate(180deg);
+  }
+
+  .workspace-menu:not([open]) > nav {
+    display: none;
+  }
+
+  .workspace-menu .mobile-navigation {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 12px 12px;
+    border-bottom: 0;
+  }
+
+  .workspace-menu .mobile-navigation a {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    min-height: 48px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+
+  .workspace-menu .mobile-navigation a span {
+    text-align: left;
+  }
+}
