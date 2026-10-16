@@ -1,107 +1,34 @@
-# Hack Apertus — project template
+# Comfort — patient health records, connected
 
-Template repository for [Hack Apertus](https://hackapertus.ch/) submissions.
-Comfort's integrated React interface is available at `http://localhost:8000/app/` after `make run`. See [frontend contracts, workflow and verification](track_2b/frontend/README.md). Django remains the authorization authority, with existing verification interfaces preserved. The [daily Journal](track_2b/docs/journal-implementation-report.md) supports private notes and symptoms, concern links, recoverable drafts, correction history and archive/restore. [Insights](track_2b/docs/insights-implementation.md) connects the existing care domains in a private timeline, counts recorded symptom observations and prepares visits from selected exact originals. Extended Journal categories remain subsequent work.
+Comfort is a patient-controlled workspace for bringing health records from different providers into one place, finding relevant source evidence, and preparing a focused visit brief. Patients keep originals, decide which records and optional personal context to use, and review AI suggestions before sharing. Comfort organizes information; it does not diagnose or recommend treatment.
 
-The [Apertus visit brief](track_2b/docs/apertus-visit-brief.md) organizes selected originals and explicitly chosen patient context around the visit's purpose, relevant history, medication/allergy context, findings, documented plans and patient priorities. Its implementation, privacy contract, separate fictional evaluator and local app/worker update commands are documented together.
-Every project keeps almost the same layout, so organizers and judges find the
-same things in the same place.
+Comfort is the Hack Apertus Track 2B Own Project submission. The public application and report live in [`track_2b/`](track_2b/); the official challenge instructions remain in [`track_2b/README.md`](track_2b/README.md). The repository-root `Makefile` is the judge entry point, following the organizers' clarification that `make run` must run from the repository root.
 
-## Select your track
+## Run locally
 
-This repository holds one example project per track:
+Requirements: x86-64 host, Docker Desktop with Linux containers and Compose v2 supporting `--wait`, GNU Make, about 16 GB available host memory (at least 12 GB allocated to Docker), at least 12 GB free disk, and free localhost ports 8000 and 8081. First setup downloads Docker images, dependencies and approximately 5.1 GB of local Apertus weights; it needs internet access. Subsequent starts verify and reuse the local model. Generation is asynchronous and CPU-bound.
 
-- `track_1a/`
-- `track_1b/`
-- `track_2a/`
-- `track_2b/`
+From a clean checkout, run:
 
-Keep the directory for the track you are competing in **exactly as it is** —
-don't rename it or move its files — and delete the other track directories.
-Keep the track's application and report files inside that directory. The
-repository root contains the launch Makefile, following the organizer's
-9 October clarification shared in Discord.
-
-## The structure
-
-| Path | What it is |
-| --- | --- |
-| `README.md` | The challenge description and submission requirements for your track |
-| `technical_report.md` | The deeper write-up: architecture, evaluation, limitations |
-| Repository-root `Makefile` | Judges launch the application with `make run` |
-| `src/` | Your code |
-| `data/` | Datasets — `track_1a`, `track_2a` and `track_2b` only; max. 100 MB |
-| `findings/` | Issue files — `track_1a` only |
-| `docs/` | Diagrams, notes, longer write-ups |
-
-## Run it
-
-Judges run `make run` from the repository root, on a clean checkout:
-
-```bash
+```sh
 make run
 ```
 
-`make run` is expected to run the project using Docker, since that
-is how the judges will run it.
-- If you used other local open-weight models, include instructions for running the project in your technical report.
-- Use the following environment variables:
-```
-LLM_NAME — name and version of the model
-LLM_BASE_URL — endpoint base URL
-LLM_API_KEY — your API key
-```
+Open [http://localhost:8000/app/](http://localhost:8000/app/). The bootstrap step creates a private synthetic demo account and local configuration. Keep generated credentials and `.runtime/` files private; never commit or paste them. `make run` keeps existing database and document volumes. See [`track_2b/src/intelligence/DEPLOYMENT.md`](track_2b/src/intelligence/DEPLOYMENT.md) for resource, model and configuration details. To stop the stack, run `make stop`.
 
-## Getting started
+## Apertus in Comfort
 
-1. Click **Use this template** to create your own repository.
-2. Delete the other track directories. Don't rename or restructure yours.
-3. Read its `README.md` and fill in `technical_report.md`.
-4. Make `make run` work from the root of the project, on a clean checkout.
+The default path serves the text-only Q4_K_M conversion of Apertus v1.5 8B in a pinned llama.cpp container on the same host. The server selects source evidence for related-record search and earlier packet overviews. A newer structured visit brief implementation organizes selected evidence around a patient's stated purpose and selected context; its deterministic and mocked software checks pass, but live model compatibility has not yet been verified. Journal AI extraction and Health history AI remain experimental; previous real Journal outputs failed validation. These features are not presented as clinically validated. Read the [technical report](track_2b/technical_report.md) and [demo runbook](track_2b/docs/demo-runbook.md) before recording.
 
-For Comfort, the layout is:
+## Project contents
 
-```text
-Makefile
-README.md
-track_2b/
-  compose.yaml
-  Dockerfile
-  README.md
-  technical_report.md
-  src/
-  data/
-  docs/
-```
+- [`track_2b/src/`](track_2b/src/): Django application, worker, React client and local inference tools.
+- [`track_2b/data/`](track_2b/data/): authored synthetic evaluations and fictional demonstration documents; currently about 1.8 MB.
+- [`track_2b/docs/`](track_2b/docs/): implementation notes, evidence, evaluation limitations and demo instructions.
+- [`track_2b/Comfort_Report.pdf`](track_2b/Comfort_Report.pdf): three-page technical report for upload.
 
-The root Makefile explicitly selects `track_2b/compose.yaml` and its project
-directory, preserving the existing volumes and private configuration paths.
-The report PDF is provisionally kept in `track_2b/` beside its Markdown source;
-the shared Discord reply clarifies only the Makefile location.
+Code is Apache-2.0. Authored evaluation data is CDLA-Permissive-2.0; imported synthetic sources retain their own MIT or CC BY 4.0 terms and attribution. See the [data license](track_2b/src/intelligence/DATA_LICENSE.txt) and [provenance card](track_2b/data/ecosystem-v1/DATA_CARD.md). Dataset publication to Hugging Face is optional for Track 2B and has not been performed.
 
-## License
+## Submission status
 
-All Hack Apertus projects are open-sourced. Please check our Terms & Conditions for specific licensing details (6. What you build is open source): https://hackapertus.ch/terms-and-conditions
-
-## Comfort — Patient Health Continuity Platform
-
-Current status: self-hosted Keycloak OAuth/OIDC, explicit self-workspace authorization, private record storage, metadata review/history, keyword search and frozen consultation packets. The workspace includes upload/review/preview/packet screens and an assistant for semantic search, source-linked overview drafts and reviewed glossary definitions. Patient-approved, recipient-bound expiring/revocable packet reads, independent episode-scoped note contributions and a patient acceptance/rejection inbox connect the return journey. Named episodes and document-date ordering preserve partial and unknown dates. A private [patient profile and Care circle](track_2b/src/identity/PROFILE.md) stores personal and emergency-contact details; saved contacts can be selected for separately approved sharing. [Medication entries](track_2b/src/records/MEDICATIONS.md) distinguish medicines prescribed from medicines reportedly taken at different visits, with optional exact original links. The current identity/records PostgreSQL 18 regression suite passes 222 tests, including care relationships, CPU evidence selection and synthetic-evaluation guards. See the [continuity contract](track_2b/src/records/CONTINUITY.md). Invited accounts are not verified clinical identities. Local CPU Apertus 8B text inference is the primary development path; hosted inference remains optional. The [queue and CPU performance follow-up](track_2b/docs/apertus-performance.md) documents working client requests, measured latency and coverage limits. Medical-image previews and bounded DICOM header inspection work; image interpretation, OCR, full study viewing, delegated assistance and voice controls remain pending.
-
-Work in `track_2b/`, the application directory; run Make targets from the repository root. The official challenge README and technical report are preserved there. See [application setup and current implementation](track_2b/src/README.md). Internal planning notes stay local and ignored by Git.
-
-`make run` now includes a [pinned local Docker Apertus server](track_2b/src/intelligence/DEPLOYMENT.md), verified weights and authenticated readiness. It retains existing application data/configuration; hosted inference remains an explicit alternative. Public hospital lookup is disabled by default in this local deployment and can use an organization-administered endpoint. A [frozen synthetic evaluation](track_2b/src/intelligence/EVALUATION.md) provides 30 short text records, 20 queries and 10 overview cases. Exact fresh-package verification, final report PDF, demo video and submission checks are tracked separately from an existing-stack launch.
-
-A separate [Apertus synthetic text trial](track_2b/src/intelligence/README.md) uses five authored development cases and 14 offline harness tests. It records real responses, strict metadata/evidence grading and latency in private artifacts, using the required LLM environment variables. Those live results must be distinguished from mocked protocol tests and from clinical validation.
-
-The [synthetic healthcare ecosystem guide](track_2b/docs/synthetic-ecosystem.md)
-documents a separate, resumable integration environment: 15 patients, 10
-additional actors, coherent pinned-source histories, temporary permissions,
-independent contributions and bounded real Apertus evaluation. Its
-[data card](track_2b/data/ecosystem-v1/DATA_CARD.md), provenance manifests and
-scenario matrix distinguish imported source data from authored extensions.
-It preserves the ordinary app and existing frozen evaluation fixtures.
-
-For hands-on testing in the ordinary `localhost:8000` client, use the explicit
-[client demo loader and walkthrough](track_2b/docs/client-testing.md). It keeps
-separate local account bindings, preserves existing records, and leaves sharing
-permissions for the tester to approve through the application.
+The public repository and technical report are prepared. The project owner still needs to add the two-minute demo URL and upload the repository/report/video through the [official submission portal](https://hackapertus.ch/online-hack/submissions). Submission is complete only after the portal confirms receipt. See [`track_2b/docs/hack-apertus-release-checklist.md`](track_2b/docs/hack-apertus-release-checklist.md).

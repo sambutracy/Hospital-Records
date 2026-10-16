@@ -5,3 +5,4 @@
 *.sql text eol=lf
 Makefile text eol=lf
 track_2b/Dockerfile text eol=lf
+track_2b/Comfort_Report.pdf binary

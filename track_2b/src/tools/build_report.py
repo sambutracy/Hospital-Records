@@ -33,7 +33,7 @@ def footer(canvas,doc):
     canvas.line(50,38,A4[0]-50,38)
     canvas.setFont('Helvetica',8)
     canvas.setFillColor(NAVY)
-    canvas.drawString(50,25,'Comfort | Hack Apertus 2B | Working draft, 14 October 2026')
+    canvas.drawString(50,25,'Comfort | Hack Apertus Track 2B | Technical submission | 16 October 2026')
     canvas.drawRightString(A4[0]-50,25,str(doc.page))
     canvas.restoreState()
 
@@ -64,7 +64,7 @@ def build():
         else: story.append(Paragraph(inline(line),body))
         index+=1
     SimpleDocTemplate(str(OUTPUT),pagesize=A4,rightMargin=50,leftMargin=50,topMargin=48,bottomMargin=50,
-        title='Comfort - technical report draft',author='Comfort project',allowSplitting=True).build(story,onFirstPage=footer,onLaterPages=footer)
+        title='Comfort - Hack Apertus Track 2B Technical Report',author='Comfort project',allowSplitting=True).build(story,onFirstPage=footer,onLaterPages=footer)
     print('Report rendered; validate page count and layout before submission.')
 
 if __name__=='__main__': build()
