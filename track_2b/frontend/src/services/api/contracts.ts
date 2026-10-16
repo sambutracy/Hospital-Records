@@ -167,6 +167,60 @@ const citationSchema = z
     locator: z.unknown().optional(),
   })
   .passthrough();
+const visitSourceUrl = z
+  .string()
+  .refine(
+    (value) =>
+      (value.startsWith("/api/") ||
+        value.startsWith("/app/") ||
+        value.startsWith("/workspaces/")) &&
+      !value.startsWith("//"),
+    "Expected a same-origin source path",
+  );
+export const visitBriefSchema = z.object({
+  representation: z.literal("visit_brief"),
+  abstained: z.boolean(),
+  packet_purpose: z.string(),
+  sections: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      priority: z.enum(["critical", "high", "contextual"]),
+      items: z.array(
+        z.object({
+          text: z.string(),
+          source_kind: z.string(),
+          citations: z.array(
+            z.object({
+              quote: z.string(),
+              download_url: privateUrl.optional(),
+              href: visitSourceUrl.optional(),
+              label: z.string(),
+              date_label: z.string(),
+              provenance: z.string(),
+              source_version_id: uuid.optional(),
+            }),
+          ),
+          caution: z.string().optional(),
+        }),
+      ),
+    }),
+  ),
+  critical_gaps: z.array(z.object({ id: z.string(), text: z.string() })),
+  coverage_summary: z.object({
+    selected_documents: z.number().int().nonnegative(),
+    represented_documents: z.number().int().nonnegative(),
+    context_items: z.number().int().nonnegative(),
+    truncated_documents: z.number().int().nonnegative(),
+    omitted_passages: z.number().int().nonnegative().optional(),
+    duplicate_passages_merged: z.number().int().nonnegative(),
+  }),
+  patient_context: z.boolean(),
+  generated_at: z.string(),
+  review_required: z.literal(true),
+  limitations: z.array(z.string()),
+});
+export type VisitBriefResult = z.infer<typeof visitBriefSchema>;
 export const taskSchema = z.object({
   packet_id: uuid.nullable(),
   id: uuid,
@@ -177,36 +231,40 @@ export const taskSchema = z.object({
   created_at: z.string().optional(),
   started_at: z.string().nullable().optional(),
   latency_seconds: z.number().nonnegative().nullable().optional(),
+  context_changed_since_request: z.boolean().optional(),
   coverage: z.record(z.string(), z.unknown()),
   result: z
-    .object({
-      abstained: z.boolean().optional(),
-      representation: z.enum(["source_excerpts"]).optional(),
-      limitation_code: z.string().optional(),
-      evidence_coverage: z
-        .object({
-          selected_sources: z.number().int().nonnegative(),
-          model_context_sources: z.number().int().nonnegative(),
-          cited_sources: z.number().int().nonnegative(),
-        })
-        .optional(),
-      matches: z
-        .array(
-          z.object({
-            record_id: uuid.optional(),
-            source_version_id: uuid.optional(),
-            reason: z.string(),
-            citations: z.array(citationSchema),
-          }),
-        )
-        .optional(),
-      items: z
-        .array(
-          z.object({ text: z.string(), citations: z.array(citationSchema) }),
-        )
-        .optional(),
-      definition: z.string().optional(),
-    })
+    .union([
+      visitBriefSchema,
+      z.object({
+        abstained: z.boolean().optional(),
+        representation: z.enum(["source_excerpts"]).optional(),
+        limitation_code: z.string().optional(),
+        evidence_coverage: z
+          .object({
+            selected_sources: z.number().int().nonnegative(),
+            model_context_sources: z.number().int().nonnegative(),
+            cited_sources: z.number().int().nonnegative(),
+          })
+          .optional(),
+        matches: z
+          .array(
+            z.object({
+              record_id: uuid.optional(),
+              source_version_id: uuid.optional(),
+              reason: z.string(),
+              citations: z.array(citationSchema),
+            }),
+          )
+          .optional(),
+        items: z
+          .array(
+            z.object({ text: z.string(), citations: z.array(citationSchema) }),
+          )
+          .optional(),
+        definition: z.string().optional(),
+      }),
+    ])
     .nullable(),
   sources: z.array(
     z.object({

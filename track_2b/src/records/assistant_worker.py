@@ -7,7 +7,7 @@ from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 from intelligence.trial import LOCAL_TEXT_MODEL, TrialError, available_models, configuration, request_json
-from .assistant import authority, digest, task_context, validate_response, serialize_context, CONTEXT_SERIALIZATION
+from .assistant import authority, task_authority, digest, task_context, validate_response, serialize_context, CONTEXT_SERIALIZATION
 from .glossary import ENTRIES, VERSION as GLOSSARY_VERSION
 from .models import AssistantTask
 from .assistant_format import output_format
@@ -54,7 +54,7 @@ def active_task(task_id,token):
         pk=task_id,state='processing',lease_token=token,lease_expires_at__gt=timezone.now()).first()
     if not task:
         raise ValueError('Task lease unavailable.')
-    authority(task.requested_by,task.workspace_id,task.kind,lock=True)
+    task_authority(task,lock=True)
     return task
 
 
@@ -76,6 +76,9 @@ def finish_failure(task_id,token,code,state='failed',diagnostic=None):
 def process_one(task_id,token):
     from .models import AssistantTask as TaskModel
     task_kind=TaskModel.objects.filter(pk=task_id).values_list('kind',flat=True).first()
+    if task_kind=='packet_overview' and TaskModel.objects.filter(pk=task_id,parameters__visit_brief=True).exists():
+        from .visit_brief import process_one as process_brief
+        return process_brief(task_id,token)
     if task_kind in ('history_exploration','followup_actions'):
         from .care_intelligence import process_one as process_care_ai
         return process_care_ai(task_id,token)

@@ -45,9 +45,9 @@ def compact_text(value):
     return json.dumps(value,ensure_ascii=False,sort_keys=True) if not isinstance(value,str) else value
 
 
-def source_chunks(version, label, assertions, budget):
+def source_chunks(version, label, assertions, budget, brief=False):
     chunks=[]
-    remaining=min(budget,4000)
+    remaining=min(budget,18000 if brief else 4000)
     truncated=False
     def add(text,locator):
         nonlocal remaining,truncated
@@ -60,6 +60,7 @@ def source_chunks(version, label, assertions, budget):
         if len(text)>remaining:
             truncated=True
             text=text[:remaining]
+            if brief and locator['kind']=='source_text': locator={**locator,'text_truncated':True}
         chunks.append({'id':f'{label}-c{len(chunks)}','text':text,'locator':locator})
         remaining-=len(text)
     add(version.original_filename,{'kind':'uploaded_filename'})
@@ -74,17 +75,24 @@ def source_chunks(version, label, assertions, budget):
             if field in ('Modality','StudyDate','InstitutionName'):
                 add(item['value'],{'kind':'unverified_dicom_header','tag':item['tag'],'field':field})
     extraction=TextExtraction.objects.filter(source_version=version).first()
-    text_remaining=TEXT_LIMIT
+    text_remaining=16000 if brief else TEXT_LIMIT
     if extraction:
         for page in extraction.pages:
             text=page['text']
             if len(text)>text_remaining:
                 truncated=True
             piece=text[:text_remaining]
-            add(piece,{'kind':'source_text','page':page['page']})
+            locator={'kind':'source_text','page':page['page']}
+            if brief and len(text)>text_remaining: locator['text_truncated']=True
+            add(piece,locator)
             text_remaining-=len(piece)
         if text_remaining<=0:
             truncated=True
+    if brief and truncated:
+        for chunk in reversed(chunks):
+            if chunk['locator']['kind']=='source_text':
+                chunk['locator']['text_truncated']=True
+                break
     return chunks,extraction,truncated,sum(len(c['text']) for c in chunks)
 
 
@@ -97,7 +105,10 @@ def create_task(user,workspace_id,kind,parameters):
             raise ValueError('Provide a search query up to 240 characters.')
         parameters={'query':parameters['query'].strip()}
     elif kind=='packet_overview':
-        if set(parameters)!={'packet_id'}:
+        if parameters.get('visit_brief') is True:
+            from .visit_context import validate_options
+            parameters=validate_options(parameters)
+        elif set(parameters)!={'packet_id'}:
             raise ValueError('Select a packet.')
     elif set(parameters)!={'source_version_id','term'} or not isinstance(parameters['term'],str) or not 1<=len(parameters['term'].strip())<=80:
         raise ValueError('Select a record and a term up to 80 characters.')
@@ -124,7 +135,12 @@ def create_task(user,workspace_id,kind,parameters):
                 selected=[(item.source_version,{field:getattr(item,field) for field in FIELDS})
                     for item in revision.items.select_related('source_version',*FIELDS).order_by('created_at','id')]
                 total=len(selected)
-                parameters={'packet_id':str(packet.pk)}
+                if parameters.get('visit_brief') is True:
+                    from .visit_context import snapshot
+                    patient_context=snapshot(user,workspace,parameters,packet)
+                    parameters={**parameters,'visit_context':patient_context,'visit_context_sha256':digest(patient_context)}
+                else:
+                    parameters={'packet_id':str(packet.pk)}
             else:
                 version=SourceVersion.objects.filter(workspace=workspace,pk=parameters['source_version_id']).first()
                 if not version:
@@ -137,11 +153,14 @@ def create_task(user,workspace_id,kind,parameters):
             snapshots=[]
             budget=CONTEXT_LIMIT
             truncated_count=0
+            brief=kind=='packet_overview' and parameters.get('visit_brief') is True
             for number,(version,assertions) in enumerate(selected):
                 head=version.metadata_head
                 assertions=assertions if assertions is not None else {field:getattr(head,field) for field in FIELDS}
                 label=f's{number+1}'
-                chunks,extraction,truncated,used=source_chunks(version,label,assertions,budget)
+                # A large first report must not silently starve later selected sources.
+                source_budget=budget//(len(selected)-number) if brief else budget
+                chunks,extraction,truncated,used=source_chunks(version,label,assertions,source_budget,brief=brief)
                 budget-=used
                 truncated_count+=int(truncated)
                 snapshots.append((version,label,chunks,extraction,head.revision))
@@ -156,7 +175,7 @@ def create_task(user,workspace_id,kind,parameters):
                 parameters['definition_ids']=candidates
             coverage={'accessible_records_at_request':total,'included_records':len(selected),
                 'record_limit':request_limit,'truncated_sources':truncated_count,
-                'text_chars_per_source':TEXT_LIMIT,'text_available_sources':sum(extraction is not None for _,_,_,extraction,_ in snapshots),
+                'text_chars_per_source':16000 if brief else TEXT_LIMIT,'text_available_sources':sum(extraction is not None for _,_,_,extraction,_ in snapshots),
                 'snapshot':True,'imaging_pixels_included':False}
             if kind=='search':
                 coverage.update({'candidate_strategy':'authorized-current-full-text-or-recent-v1',
@@ -192,8 +211,16 @@ def get_task(user,workspace_id,task_id,lock=False):
     task=rows.filter(workspace_id=workspace_id,pk=task_id,requested_by=user).first()
     if not task:
         raise Http404
-    authority(user,workspace_id,task.kind,lock=lock)
+    task_authority(task,lock=lock)
     return task
+
+
+def task_authority(task,lock=False):
+    result=authority(task.requested_by,task.workspace_id,task.kind,lock=lock)
+    if task.kind=='packet_overview' and task.parameters.get('visit_brief') is True:
+        from .visit_context import authorize_context
+        authorize_context(task.requested_by,task.workspace_id,task.parameters['include_context'],lock=lock)
+    return result
 
 
 def cancel_task(user,workspace_id,task_id):

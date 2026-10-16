@@ -1,7 +1,9 @@
 # Hack Apertus — project template
 
 Template repository for [Hack Apertus](https://hackapertus.ch/) submissions.
-Comfort's integrated React interface is available at `http://localhost:8000/app/` after `make run`. See [frontend contracts, workflow and verification](track_2b/frontend/README.md). Django remains the authorization authority, with existing verification interfaces preserved. The [daily Journal](track_2b/docs/journal-implementation-report.md) supports private notes and symptoms, concern links, recoverable drafts, correction history and archive/restore. [Insights](track_2b/docs/insights-implementation.md) connects the existing care domains in a private timeline, counts recorded symptom observations and prepares visits from selected exact originals. Extended Journal categories and selected Journal evidence for AI remain subsequent slices.
+Comfort's integrated React interface is available at `http://localhost:8000/app/` after `make run`. See [frontend contracts, workflow and verification](track_2b/frontend/README.md). Django remains the authorization authority, with existing verification interfaces preserved. The [daily Journal](track_2b/docs/journal-implementation-report.md) supports private notes and symptoms, concern links, recoverable drafts, correction history and archive/restore. [Insights](track_2b/docs/insights-implementation.md) connects the existing care domains in a private timeline, counts recorded symptom observations and prepares visits from selected exact originals. Extended Journal categories remain subsequent work.
+
+The [Apertus visit brief](track_2b/docs/apertus-visit-brief.md) organizes selected originals and explicitly chosen patient context around the visit's purpose, relevant history, medication/allergy context, findings, documented plans and patient priorities. Its implementation, privacy contract, separate fictional evaluator and local app/worker update commands are documented together.
 Every project keeps almost the same layout, so organizers and judges find the
 same things in the same place.
 

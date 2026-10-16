@@ -75,7 +75,7 @@ export default function Consultation() {
                   ))}
                 </div>
               </details>
-              <Assistant packetId={packetId} />
+              <Assistant key={packetId} packetId={packetId} />
               {patient.capabilities.includes("manage_profile") &&
                 patient.capabilities.includes("prepare_packet") && (
                   <CareIntelligence key={packetId} packetId={packetId} />

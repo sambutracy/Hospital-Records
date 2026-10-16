@@ -283,12 +283,14 @@ def packet(request,workspace_id,packet_id):
 
 
 def assistant_payload(task):
+    from .visit_context import changed_since_request
     sources=list(task.sources.select_related('source_version__record','source_version__metadata_head').order_by('source_label'))
     return {'id':task.pk,'kind':task.kind,'state':task.state,'error_code':task.safe_error_code,
         'query':task.parameters.get('query') if task.kind=='search' else None,
         'packet_id':task.packet_revision.packet_id if task.packet_revision_id else None,
         'created_at':task.created_at,'started_at':task.started_at,'finished_at':task.finished_at,'model':task.model_name or None,
         'prompt_version':task.prompt_version or None,'coverage':task.coverage,
+        'context_changed_since_request':changed_since_request(task),
         'configuration':task.configuration,'latency_seconds':task.latency_seconds,'usage':task.usage,
         'result':task.result,
         'sources':[{'source_version_id':s.source_version_id,'record_id':s.source_version.record_id,
@@ -316,7 +318,7 @@ def assistant_tasks(request,workspace_id):
     visible=[]
     for task in tasks:
         try:
-            assistant.authority(request.user,workspace_id,task.kind)
+            assistant.task_authority(task)
         except Http404:
             continue
         visible.append(assistant_payload(task))

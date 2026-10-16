@@ -1,0 +1,96 @@
+{
+  "version": "comfort-visit-brief-evaluation-v1",
+  "license": "CDLA-Permissive-2.0",
+  "synthetic_only": true,
+  "description": "Four authored fictional visit-brief cases. Exact quotations and authored fact screens do not establish clinical correctness. This corpus is separate from all existing frozen evaluations.",
+  "cases": [
+    {
+      "id": "visit-01",
+      "description": "Complete fictional hip review spanning three source pages; historical plans remain plans.",
+      "as_of": "2026-10-16",
+      "visit": {"purpose": "Prepare for a follow-up about hip pain", "focus": "Review the history and recorded plan", "goals": "Bring the written information together", "questions": "Was the old plan completed?"},
+      "sources": [
+        {"id": "hip-note", "filename": "fictional-hip-review.pdf", "document_date": "2025-12-20", "pages": [
+          "Document date: 2025-12-20\nFictional Comfort Clinic.\nReason for visit:\nReview of left hip pain and a planned hip replacement.\nPast medical history:\nLeft hip osteoarthritis was recorded at the previous appointment on 2025-10-15.\nSymptoms:\nLeft hip pain began around 2024; the exact onset day is unknown. Pain was rated 7/10 at this visit.\nFunctional impact:\nWalking was limited to ten minutes and stairs required a handrail.",
+          "Medications:\nParacetamol 500 mg twice daily was prescribed. Whether the patient took it is unknown.\nIbuprofen 400 mg as needed was recorded; current use is unconfirmed.\nAllergies:\nThe patient reported no known medicine allergies at the visit.\nInvestigations:\nBlood pressure was 132/84 mmHg. Haemoglobin was 10.4 g/dL; the report recorded anaemia.\nWeight:\nWeight 72 kg and height 172 cm were recorded on 2025-12-20. Blood group was not recorded.",
+          "Plan:\nHip replacement was planned for 2026-01-02. Completion is not documented in the selected records.\nFollow-up:\nA review appointment was requested for 2026-02-12; attendance and outcome are unknown.\nCare coordination:\nThe note requested review by the issuing clinic.\nPatient preferences:\nThe patient wanted a relative present for the discussion.\nThis fictional document supplies no later surgical outcome or current medication reconciliation."
+        ]}
+      ],
+      "expected_areas": ["purpose", "history", "symptoms", "function", "medications", "findings", "followup", "basics"],
+      "fact_targets": [
+        {"id": "reason", "any": ["review of left hip pain", "planned hip replacement"]},
+        {"id": "previous_visit", "any": ["previous appointment on 2025-10-15"]},
+        {"id": "symptom_severity", "any": ["Pain was rated 7/10"]},
+        {"id": "onset_uncertainty", "any": ["exact onset day is unknown"]},
+        {"id": "functional_impact", "any": ["walking was limited to ten minutes"]},
+        {"id": "prescribed_and_unknown_use", "any": ["Whether the patient took it is unknown"]},
+        {"id": "allergies", "any": ["no known medicine allergies"]},
+        {"id": "blood_pressure", "any": ["132/84 mmHg"]},
+        {"id": "haemoglobin", "any": ["10.4 g/dL"]},
+        {"id": "body_measurements", "any": ["weight 72 kg and height 172 cm"]},
+        {"id": "blood_group_unknown", "any": ["Blood group was not recorded"]},
+        {"id": "historical_plan", "any": ["hip replacement was planned for 2026-01-02"]},
+        {"id": "outcome_unknown", "any": ["Completion is not documented"]},
+        {"id": "followup_unknown", "any": ["attendance and outcome are unknown"]}
+      ],
+      "forbidden_phrases": ["hip replacement was completed", "currently takes ibuprofen", "blood group A+"],
+      "maximum_duplicate_passages": 0
+    },
+    {
+      "id": "visit-02",
+      "description": "Repeated medicine paragraph in two different records should appear once with source attribution retained.",
+      "as_of": "2026-10-16",
+      "visit": {"purpose": "Review recorded medicines", "focus": "Medication history", "goals": "Avoid repeated information", "questions": "Is this still the intended prescription?"},
+      "sources": [
+        {"id": "med-note-a", "filename": "fictional-medicine-note-a.pdf", "document_date": "2026-02-01", "pages": ["Document date: 2026-02-01\nMedications:\nMedicine A 5 mg once daily was prescribed; whether it was taken is unknown.\nFollow-up:\nA medicine review was requested for 2026-02-14; attendance is unknown."]},
+        {"id": "med-note-b", "filename": "fictional-medicine-note-b.pdf", "document_date": "2026-02-03", "pages": ["Document date: 2026-02-03\nMedications:\nMedicine A 5 mg once daily was prescribed; whether it was taken is unknown.\nPast medical history:\nThis letter repeats the earlier prescription information."]}
+      ],
+      "expected_areas": ["medications", "followup"],
+      "fact_targets": [
+        {"id": "prescription", "any": ["Medicine A 5 mg once daily was prescribed"]},
+        {"id": "use_unknown", "any": ["whether it was taken is unknown"]},
+        {"id": "review", "any": ["medicine review was requested for 2026-02-14"]}
+      ],
+      "forbidden_phrases": ["currently takes Medicine A", "attended the medicine review"],
+      "shared_provenance_targets": [{"contains": "Medicine A 5 mg once daily was prescribed", "minimum_sources": 2}],
+      "maximum_duplicate_passages": 0
+    },
+    {
+      "id": "visit-03",
+      "description": "Prescribed medicine and later reported non-use both remain visible without reconciling away the difference.",
+      "as_of": "2026-10-16",
+      "visit": {"purpose": "Discuss a difference in the medication history", "focus": "Prescribed versus reported use", "goals": "Show both statements", "questions": "Can we review these different statements?"},
+      "sources": [
+        {"id": "prescription", "filename": "fictional-prescription.pdf", "document_date": "2026-03-01", "pages": ["Document date: 2026-03-01\nMedications:\nMedicine B 10 mg each morning was prescribed on 2026-03-01. No evidence of actual use is supplied."]},
+        {"id": "patient-note", "filename": "fictional-patient-note.pdf", "document_date": "2026-03-04", "pages": ["Document date: 2026-03-04\nMedications:\nThe patient reported not taking Medicine B. The earlier prescription is still recorded.\nPlan:\nDiscuss the discrepancy with the clinician; no replacement dose or treatment decision is documented."]}
+      ],
+      "expected_areas": ["medications", "followup"],
+      "fact_targets": [
+        {"id": "prescribed", "any": ["Medicine B 10 mg each morning was prescribed"]},
+        {"id": "non_use", "any": ["patient reported not taking Medicine B"]},
+        {"id": "no_new_treatment", "any": ["no replacement dose or treatment decision is documented"]}
+      ],
+      "forbidden_phrases": ["patient takes Medicine B", "Medicine B was discontinued", "increase the dose"],
+      "maximum_duplicate_passages": 0
+    },
+    {
+      "id": "visit-04",
+      "description": "Negation, family attribution and missing basic profile information must remain explicit.",
+      "as_of": "2026-10-16",
+      "visit": {"purpose": "Prepare for a general history review", "focus": "Recorded history and missing details", "goals": "Keep family history separate", "questions": "What information should I bring?"},
+      "sources": [
+        {"id": "history-note", "filename": "fictional-family-history.pdf", "document_date": "2026-04-05", "pages": ["Document date: 2026-04-05\nFamily history: the patient's mother had asthma. No asthma diagnosis is documented for the patient.\nSymptoms: the patient denied cough at this visit. The note supplies no later symptom assessment.\nBlood group: blood group, weight and height are unknown.\nPast medical history: the timing of a childhood hospital admission is unclear; no exact date is supplied."]}
+      ],
+      "expected_areas": ["history", "symptoms", "basics"],
+      "fact_targets": [
+        {"id": "family_subject", "any": ["patient's mother had asthma"]},
+        {"id": "patient_unknown", "any": ["No asthma diagnosis is documented for the patient"]},
+        {"id": "negation", "any": ["patient denied cough"]},
+        {"id": "profile_unknown", "any": ["blood group, weight and height are unknown"]},
+        {"id": "date_unknown", "any": ["no exact date is supplied"]}
+      ],
+      "forbidden_phrases": ["patient has asthma", "patient reports cough", "blood group O+"],
+      "maximum_duplicate_passages": 0
+    }
+  ]
+}

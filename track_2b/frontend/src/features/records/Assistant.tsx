@@ -1,3 +1,4 @@
+import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePatient } from "../../services/auth/session";
 import { api, post } from "../../services/api/client";
@@ -9,6 +10,7 @@ import {
 } from "../../services/api/contracts";
 import { Button, Notice } from "../../design-system/primitives";
 import TaskHistory from "./TaskHistory";
+import VisitBrief from "../care/VisitBrief";
 const pending = new Set(["queued", "processing", "waiting_model"]);
 export function TaskCard({
   task,
@@ -30,13 +32,15 @@ export function TaskCard({
       client.invalidateQueries({ queryKey: ["assistant-tasks"] }),
   });
   const result = task.result;
+  const brief = result?.representation === "visit_brief" ? result : null;
+  const legacyResult = result?.representation !== "visit_brief" ? result : null;
   return (
     <article className="panel stack assistant-task">
       <h3>
         {task.kind === "search"
           ? "Related-record search"
           : task.kind === "packet_overview"
-            ? "Visit overview draft"
+            ? "Visit brief draft"
             : "Term explanation"}
       </h3>
       {task.kind === "search" && task.query && (
@@ -54,9 +58,13 @@ export function TaskCard({
             "Apertus is working. You can leave and return to this saved request.",
           waiting_model: "Your request is saved and waiting for model access.",
           completed:
-            task.result?.limitation_code === "no_readable_report_text"
+            legacyResult?.limitation_code === "no_readable_report_text"
               ? "A readable report is needed. No AI overview was generated."
-              : "AI suggestions · review against their sources.",
+              : brief
+                ? brief.abstained
+                  ? "Request finished · no source overview returned."
+                  : "Private AI draft · review before using or sharing."
+                : "AI suggestions · review against their sources.",
           failed:
             task.error_code === "no_readable_report_text"
               ? "Add a written report with readable text before requesting an overview. Your originals are unchanged."
@@ -66,7 +74,7 @@ export function TaskCard({
           cancelled: "This request was cancelled.",
         }[task.state] ?? "Request saved."}
       </Notice>
-      {task.result?.limitation_code === "no_readable_report_text" && (
+      {legacyResult?.limitation_code === "no_readable_report_text" && (
         <p>
           Wait for text reading to finish, or add a readable written report,
           then request a new overview. Dates and filenames alone cannot describe
@@ -82,21 +90,28 @@ export function TaskCard({
           draft still refers to its saved source versions.
         </Notice>
       )}
-      {result?.abstained && (
+      {task.context_changed_since_request && (
+        <Notice tone="warning">
+          Your private context changed after this request. This draft uses the
+          details saved when you requested it.
+        </Notice>
+      )}
+      {brief && <VisitBrief result={brief} />}
+      {legacyResult?.abstained && (
         <p>
           No supported answer was returned. This does not establish that your
           history contains no relevant record.
         </p>
       )}
-      {result?.representation === "source_excerpts" && (
+      {legacyResult?.representation === "source_excerpts" && (
         <p className="assistant-excerpt-intro">
           Apertus selected these exact source excerpts. Review the originals for
           context; this is not a complete summary.
-          {result.evidence_coverage &&
-            ` Excerpts cite ${result.evidence_coverage.cited_sources} of ${result.evidence_coverage.selected_sources} selected source records.`}
+          {legacyResult.evidence_coverage &&
+            ` Excerpts cite ${legacyResult.evidence_coverage.cited_sources} of ${legacyResult.evidence_coverage.selected_sources} selected source records.`}
         </p>
       )}
-      {(result?.matches ?? []).map((match, index) => (
+      {(legacyResult?.matches ?? []).map((match, index) => (
         <section key={index} className="assistant-result">
           <span className="assistant-interpretation-label">
             AI selection note
@@ -112,9 +127,9 @@ export function TaskCard({
           ))}
         </section>
       ))}
-      {(result?.items ?? []).map((item, index) => (
+      {(legacyResult?.items ?? []).map((item, index) => (
         <section key={index} className="assistant-result">
-          {result?.representation === "source_excerpts" ? (
+          {legacyResult?.representation === "source_excerpts" ? (
             <blockquote className="quote">
               {item.citations.map((citation, i) => (
                 <p key={i}>{citation.quote}</p>
@@ -159,13 +174,15 @@ export function TaskCard({
               seconds of processing.
             </p>
           )}
-        <p>
-          {typeof task.coverage.included_records === "number"
-            ? `${task.coverage.included_records} source records included. `
-            : ""}
-          This request uses a bounded snapshot, not your complete health
-          history.
-        </p>
+        {!brief && (
+          <p>
+            {typeof task.coverage.included_records === "number"
+              ? `${task.coverage.included_records} source records included. `
+              : ""}
+            This request uses a bounded snapshot, not your complete health
+            history.
+          </p>
+        )}
       </details>
       {pending.has(task.state) && (
         <Button
@@ -181,10 +198,12 @@ export function TaskCard({
           {cancel.error.message}
         </Notice>
       )}
-      <small>
-        Citations are checked for source structure. They do not prove medical
-        correctness.
-      </small>
+      {!brief && (
+        <small>
+          Citations are checked for source structure. They do not prove medical
+          correctness.
+        </small>
+      )}
     </article>
   );
 }
@@ -196,6 +215,19 @@ export default function Assistant({
   packetId?: string;
 }) {
   const patient = usePatient();
+  const formId = useId();
+  const [visitFocus, setVisitFocus] = useState("");
+  const [patientGoals, setPatientGoals] = useState("");
+  const [patientQuestions, setPatientQuestions] = useState("");
+  const [includeContext, setIncludeContext] = useState({
+    profile: false,
+    medications: false,
+    journal: false,
+    care: false,
+  });
+  const canUsePrivateContext = patient.capabilities.includes("manage_profile");
+  const canUseMedications =
+    canUsePrivateContext && patient.capabilities.includes("manage_medications");
   const base = `/api/workspaces/${patient.id}/`;
   const client = useQueryClient();
   const status = useQuery({
@@ -222,7 +254,22 @@ export default function Assistant({
         base + "assistant/tasks/",
         taskSchema,
         packetId
-          ? { kind: "packet_overview", parameters: { packet_id: packetId } }
+          ? {
+              kind: "packet_overview",
+              parameters: {
+                packet_id: packetId,
+                visit_brief: true,
+                visit_focus: visitFocus.trim(),
+                patient_goals: patientGoals.trim(),
+                patient_questions: patientQuestions.trim(),
+                include_context: {
+                  profile: canUsePrivateContext && includeContext.profile,
+                  medications: canUseMedications && includeContext.medications,
+                  journal: canUsePrivateContext && includeContext.journal,
+                  care: canUsePrivateContext && includeContext.care,
+                },
+              },
+            }
           : { kind: "search", parameters: { query } },
       ),
     onSuccess: (task) => {
@@ -247,12 +294,88 @@ export default function Assistant({
     <section className="form-section">
       <h2>
         {packetId
-          ? "Source-linked visit draft"
+          ? "Prepare with Apertus"
           : "Find related records with Apertus"}
       </h2>
       <p>
-        Ask only when you need help. Results remain suggestions for your review.
+        {packetId
+          ? "Apertus organizes your selected records into a visit brief. Add what you want to discuss."
+          : "Ask only when you need help. Results remain suggestions for your review."}
       </p>
+      {packetId && (
+        <div className="visit-brief-form form-section">
+          <label className="field" htmlFor={`${formId}-purpose`}>
+            <span>Purpose / What has changed or brings you here</span>
+            <textarea
+              id={`${formId}-purpose`}
+              value={visitFocus}
+              maxLength={600}
+              rows={3}
+              onChange={(event) => setVisitFocus(event.target.value)}
+              disabled={mutation.isPending}
+            />
+          </label>
+          <div className="form-grid">
+            <label className="field" htmlFor={`${formId}-goals`}>
+              <span>What matters to you</span>
+              <textarea
+                id={`${formId}-goals`}
+                value={patientGoals}
+                maxLength={600}
+                rows={3}
+                onChange={(event) => setPatientGoals(event.target.value)}
+                disabled={mutation.isPending}
+              />
+            </label>
+            <label className="field" htmlFor={`${formId}-questions`}>
+              <span>Questions for this visit</span>
+              <textarea
+                id={`${formId}-questions`}
+                value={patientQuestions}
+                maxLength={600}
+                rows={3}
+                onChange={(event) => setPatientQuestions(event.target.value)}
+                disabled={mutation.isPending}
+              />
+            </label>
+          </div>
+          {canUsePrivateContext && (
+            <fieldset className="visit-brief-context">
+              <legend>Add private context (optional)</legend>
+              <p id={`${formId}-privacy`}>
+                Used only for this draft. These details are not added to shared
+                records.
+              </p>
+              {(
+                [
+                  ["profile", "Personal health details"],
+                  ...(canUseMedications
+                    ? [["medications", "Medicines and prescriptions"]]
+                    : []),
+                  ["journal", "Journal observations"],
+                  ["care", "Conditions and care team"],
+                ] as [keyof typeof includeContext, string][]
+              ).map(([key, label]) => (
+                <label className="checkbox" key={key}>
+                  <input
+                    type="checkbox"
+                    checked={includeContext[key]}
+                    onChange={(event) =>
+                      setIncludeContext((current) => ({
+                        ...current,
+                        [key]: event.target.checked,
+                      }))
+                    }
+                    aria-describedby={`${formId}-privacy`}
+                    disabled={mutation.isPending}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          )}
+        </div>
+      )}
       <div className="actions form-section">
         <Button
           variant="secondary"
@@ -264,7 +387,11 @@ export default function Assistant({
           }
           onPress={() => mutation.mutate()}
         >
-          {packetId ? "Request an overview draft" : "Find related records"}
+          {mutation.isPending
+            ? "Saving request…"
+            : packetId
+              ? "Create visit brief"
+              : "Find related records"}
         </Button>
         <Button
           variant="quiet"
